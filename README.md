@@ -1,16 +1,16 @@
 # Versus Bot
 
-A [MelonLoader](https://melonwiki.xyz) mod for **Plants vs. Zombies: Replanted** that adds a bot opponent to Versus mode, plus Pool and Garden maps.
+A [MelonLoader](https://melonwiki.xyz) mod for **Plants vs. Zombies: Replanted** that adds a bot opponent to Versus mode, plus a new Pool map.
 
 *Versión en español más abajo.*
 
 ## Features
 
-- **Three modes** on the Versus screen: Player vs Bot, Player vs Player and Bot vs Bot.
+- **Three modes** on the Versus screen: Player vs Bot, Player vs Player and Bot vs Bot. Double-click the mode button to change mode; a single click opens the bot difficulty (Player vs Bot and Bot vs Bot only).
 - **Keyboard and mouse, plus a gamepad:** Player vs Bot needs no gamepad, and in Player vs Player one player uses keyboard and mouse and the other a gamepad.
 - **Bot difficulty from 1 to 200**, with a slider in the game. The bot can play plants or zombies.
 - **Pool map:** 6 rows, water in rows 3 and 4, and 7 cards.
-- **Garden map:** 5 rows and 6 cards.
+- **Regular Versus map** still available (Garden button): 5 rows and 6 cards.
 - **New zombie cards:** Balloon, Dolphin Rider and Snorkel, built from what the game already ships.
 - **x1/x2 speed button** during Bot vs Bot matches.
 - **Optional auto-collect** for sun, coins and presents, in the game options.
@@ -56,13 +56,13 @@ dotnet build -c Release -p:GameDir="C:\Program Files (x86)\Steam\steamapps\commo
 
 ## Español
 
-Mod de MelonLoader para **Plants vs. Zombies: Replanted** que añade un bot rival al modo Versus, además de los mapas Piscina y Jardín.
+Mod de MelonLoader para **Plants vs. Zombies: Replanted** que añade un bot rival al modo Versus, además de un nuevo mapa Piscina.
 
-- **Tres modos** en la pantalla de Versus: Jugador vs Bot, Jugador vs Jugador y Bot vs Bot.
+- **Tres modos** en la pantalla de Versus: Jugador vs Bot, Jugador vs Jugador y Bot vs Bot. Haz doble clic en el botón del modo para cambiarlo; un solo clic abre la dificultad del bot (solo en Jugador vs Bot y Bot vs Bot).
 - **Teclado y ratón, más mando:** Jugador vs Bot no necesita mando, y en Jugador vs Jugador una persona usa teclado y ratón y la otra un mando.
 - **Dificultad del bot de 1 a 200**, con un control en el juego. El bot puede jugar con plantas o con zombis.
 - **Mapa Piscina:** 6 líneas, agua en las líneas 3 y 4, y 7 cartas.
-- **Mapa Jardín:** 5 líneas y 6 cartas.
+- **Mapa normal de Versus** sigue disponible (botón Jardín): 5 líneas y 6 cartas.
 - **Cartas nuevas de zombi:** Globo, Delfín y Buzo.
 - **Botón de velocidad x1/x2** en partidas Bot vs Bot.
 - **Recogida automática opcional** de soles, monedas y regalos, en las opciones del juego.
