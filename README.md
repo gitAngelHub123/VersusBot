@@ -7,6 +7,7 @@ A [MelonLoader](https://melonwiki.xyz) mod for **Plants vs. Zombies: Replanted**
 ## Features
 
 - **Three modes** on the Versus screen: Player vs Bot, Player vs Player and Bot vs Bot.
+- **Keyboard and mouse, plus a gamepad:** Player vs Bot needs no gamepad, and in Player vs Player one player uses keyboard and mouse and the other a gamepad.
 - **Bot difficulty from 1 to 200**, with a slider in the game. The bot can play plants or zombies.
 - **Pool map:** 6 rows, water in rows 3 and 4, and 7 cards.
 - **Garden map:** 5 rows and 6 cards.
@@ -58,6 +59,7 @@ dotnet build -c Release -p:GameDir="C:\Program Files (x86)\Steam\steamapps\commo
 Mod de MelonLoader para **Plants vs. Zombies: Replanted** que añade un bot rival al modo Versus, además de los mapas Piscina y Jardín.
 
 - **Tres modos** en la pantalla de Versus: Jugador vs Bot, Jugador vs Jugador y Bot vs Bot.
+- **Teclado y ratón, más mando:** Jugador vs Bot no necesita mando, y en Jugador vs Jugador una persona usa teclado y ratón y la otra un mando.
 - **Dificultad del bot de 1 a 200**, con un control en el juego. El bot puede jugar con plantas o con zombis.
 - **Mapa Piscina:** 6 líneas, agua en las líneas 3 y 4, y 7 cartas.
 - **Mapa Jardín:** 5 líneas y 6 cartas.
