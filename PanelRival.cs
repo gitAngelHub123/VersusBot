@@ -144,10 +144,12 @@ internal static class PanelRival
     // Los botones de mapa son copias del de Menú, a su izquierda, uno por mapa.
     private static void AsegurarBotonMapa()
     {
-        if (_botonesMapaCreados)
+        if (_botonesMapaCreados && BotonesMapaVivos())
         {
             return;
         }
+        // Al salir al menú el juego destruye la pantalla y los botones con ella: se vuelven a crear.
+        _botonesMapaCreados = false;
         // Se espera al Menú visible: copiar el del contenedor oculto no mostraría nada.
         var menu = BuscarBotonMenu();
         if (menu == null || EstaEnContenedorOculto(menu.GetComponent<RectTransform>()))
@@ -175,6 +177,22 @@ internal static class PanelRival
         }
         _botonesMapaCreados = true;
         VersusBotMod.Detalle("Botones de mapa junto a '" + menu.name + "' en '" + menu.transform.parent.name + "', medida " + _botonMenu.rect.size + ", posición " + _botonMenu.anchoredPosition);
+    }
+
+    private static bool BotonesMapaVivos()
+    {
+        if (_botonMenu == null)
+        {
+            return false;
+        }
+        for (var i = 0; i < _botonesMapa.Length; i++)
+        {
+            if (_botonesMapa[i].Rect == null)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     // La primera vez, el juego tiene otro botón Menú en un contenedor que no se muestra.
