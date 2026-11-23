@@ -32,12 +32,17 @@ internal sealed class Bot
     private static int Filas => MapaVersus.Piscina ? FilasDePiscina : FilasDeDia;
     private const int IntentosPorCarta = 30;
     // Cada curva da su valor en estos niveles; entre dos puntos se interpola.
-    private static readonly int[] NivelesCurva = { 1, 25, 50, 75, 100, 150, 200 };
-    private static readonly float[] CurvaEspera = { 14f, 7f, 3.5f, 2f, 1f, 0.5f, 0.25f };
-    private static readonly float[] CurvaRecogida = { 5f, 3f, 1.6f, 0.9f, 0.5f, 0.25f, 0.1f };
-    private static readonly float[] CurvaColocar = { 1f, 0.8f, 0.6f, 0.5f, 0.4f, 0.25f, 0.15f };
-    private static readonly float[] CurvaInteligencia = { 0f, 0.15f, 0.55f, 0.85f, 1f, 1f, 1f };
-    private static readonly float[] CurvaPerderTurno = { 0.5f, 0.3f, 0.1f, 0f, 0f, 0f, 0f };
+    // El 200 es la dificultad que el usuario dio por buena (2026-11-23); cada 25 niveles menos el bot
+    // espera más entre jugadas, tarda más en colocar, piensa menos y pierde más turnos.
+    private static readonly int[] NivelesCurva = { 1, 25, 50, 75, 100, 125, 150, 175, 200 };
+    private static readonly float[] CurvaEspera = { 14f, 7f, 3.5f, 2f, 1.5f, 1.1f, 0.8f, 0.5f, 0.25f };
+    private static readonly float[] CurvaRecogida = { 5f, 3f, 1.6f, 0.9f, 0.6f, 0.45f, 0.3f, 0.2f, 0.1f };
+    private static readonly float[] CurvaColocar = { 1f, 0.8f, 0.6f, 0.5f, 0.45f, 0.38f, 0.3f, 0.22f, 0.15f };
+    private static readonly float[] CurvaInteligencia = { 0f, 0.15f, 0.55f, 0.8f, 0.88f, 0.92f, 0.95f, 0.98f, 1f };
+    private static readonly float[] CurvaPerderTurno = { 0.5f, 0.3f, 0.1f, 0.05f, 0.03f, 0.02f, 0.01f, 0f, 0f };
+
+    // Probabilidad de jugar "pensando" en el nivel actual (también decide si responde al mazo del rival).
+    internal static float Inteligencia => SegunNivel(CurvaInteligencia);
     // Soles que las plantas guardan para emergencias, desde el nivel indicado.
     private const int NivelReserva1 = 100;
     private const int NivelReserva2 = 150;
@@ -349,7 +354,9 @@ internal sealed class Bot
         // el rival y qué busca; si una carta de la lista no se puede tomar, se anota por qué.
         if (!esZombi && libres > 0)
         {
-            var conjunto = ConjuntoPreferido(z => elegidasRival.Contains(z) || rival.Contains(z));
+            // Mientras más bajo el nivel, más seguido se le pasa responder al mazo del rival.
+            var respondeAlRival = Azar.NextDouble() < Inteligencia;
+            var conjunto = ConjuntoPreferido(z => respondeAlRival && (elegidasRival.Contains(z) || rival.Contains(z)));
             VersusBotMod.Log.Msg("Bot J" + (_indice + 1) + " recapitula: lleva [" + string.Join(", ", propias) + "], quedan " + libres
                 + " espacios, el rival eligió [" + string.Join(", ", elegidasRival) + "], busca [" + string.Join(", ", conjunto) + "]");
             foreach (var tipo in conjunto)

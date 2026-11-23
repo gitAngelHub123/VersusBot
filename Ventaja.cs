@@ -15,9 +15,15 @@ internal static class ParcheVentajaDeSol
     // 2 = el doble de sol (+100 %, pedido del usuario). Ajustable si la partida queda despareja.
     internal const float FactorSolDelBot = 2f;
 
+    // Desde el nivel 100 sin ventaja; cada 25 niveles más, un 25 % más de sol (200 = el doble).
+    private const int NivelSinVentaja = 100;
+
+    internal static float FactorSegunNivel =>
+        1f + (FactorSolDelBot - 1f) * UnityEngine.Mathf.Clamp01((VersusBotMod.Nivel - NivelSinVentaja) / (float)(Bot.NivelMaestro - NivelSinVentaja));
+
     private static void Prefix(Board __instance, ref int theAmount, int playerIndex)
     {
-        if (theAmount <= 0 || VersusBotMod.Nivel < Bot.NivelMaestro || !VersusBotMod.JugadorEsBot(playerIndex))
+        if (theAmount <= 0 || VersusBotMod.Nivel <= NivelSinVentaja || !VersusBotMod.JugadorEsBot(playerIndex))
         {
             return;
         }
@@ -26,7 +32,7 @@ internal static class ParcheVentajaDeSol
         {
             return;
         }
-        theAmount = Mathf.RoundToInt(theAmount * FactorSolDelBot);
+        theAmount = Mathf.RoundToInt(theAmount * FactorSegunNivel);
     }
 
     private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
