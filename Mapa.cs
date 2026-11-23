@@ -228,8 +228,10 @@ internal static class MapaVersus
 
     private static void AplicarReglas(Board tablero)
     {
-        // De noche la piscina usa el fondo de niebla (el juego lo trata como piscina y como noche); la niebla se apaga aparte.
-        tablero.mBackground = Piscina ? (Noche ? BackgroundType.Fog : BackgroundType.Pool)
+        // La piscina de noche queda como Pool: con Fog el juego dibuja su niebla aunque StageHasFog diga que no.
+        // El aspecto de noche lo da el fondo (datos del nivel de niebla) y las reglas de noche las maneja el mod
+        // (Noche.cs: setas despiertas, seta solar, cielo; el bot usa ReglasDeNoche.Activas).
+        tablero.mBackground = Piscina ? BackgroundType.Pool
             : Noche ? BackgroundType.Night : _fondoOriginal;
         var filas = tablero.mPlantRow;
         for (var i = 0; i < filas.Length; i++)
@@ -503,8 +505,7 @@ internal static class MapaVersus
         var tablero = zombi.mBoard;
         if (tablero != null)
         {
-            // De noche la piscina usa el fondo de niebla: antes volvía siempre al de día.
-            tablero.mBackground = Noche ? BackgroundType.Fog : BackgroundType.Pool;
+            tablero.mBackground = BackgroundType.Pool;
         }
         if (zombi.mInPool)
         {
