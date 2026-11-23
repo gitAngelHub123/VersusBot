@@ -1127,13 +1127,12 @@ internal static class MapaVersus
         }
         VersusBotMod.Log.Msg("Silueta: delfín " + delfin.m_previewSpriteOffset + " imagen=" + (delfin.m_previewSprite != null && delfin.m_previewSprite.RuntimeKeyIsValid()) + ", buzo " + buzo?.m_previewSpriteOffset + " imagen=" + (buzo?.m_previewSprite != null && buzo.m_previewSprite.RuntimeKeyIsValid()) + ", normal " + normal?.m_previewSpriteOffset);
         delfin.m_previewSpriteOffset += CorreccionSiluetaDelfin;
-        // El buzo trae el mismo desplazamiento sin corregir que tenía el delfín (-4, 90): se le aplica la misma corrección.
-        if (buzo != null)
-        {
-            buzo.m_previewSpriteOffset += CorreccionSiluetaDelfin;
-            VersusBotMod.Log.Msg("Silueta del buzo: desplazamiento " + buzo.m_previewSpriteOffset);
-        }
+        _referenciaSiluetaBuzo = buzo?.m_previewSprite;
     }
+
+    // Imagen de la silueta del buzo: el juego no la carga sola (ver ParcheSiluetaBuzo).
+    private static UnityEngine.AddressableAssets.AssetReferenceSprite _referenciaSiluetaBuzo;
+    internal static UnityEngine.AddressableAssets.AssetReferenceSprite ReferenciaSiluetaBuzo() => _referenciaSiluetaBuzo;
 
     private static readonly SeedType[] OrdenDeCartas =
     {
@@ -2199,51 +2198,83 @@ internal static class CodigoDeCartas
     }
 }
 
-// DIAGNÓSTICO 1.0.1 (temporal): por qué el buzo no muestra silueta antes de colocarlo.
-// Mientras un jugador tenga la carta del buzo en la mano, anota una vez por segundo dónde está el cursor
-// y en qué estado está la silueta.
+// La silueta del buzo sale sin imagen: el juego crea el objeto, lo enciende y lo mueve a la casilla,
+// pero no le carga el dibujo. Se le pone la imagen de la definición del buzo (archivos del juego).
+// El registro anota una vez dónde quedan la del buzo y la del delfín, por si hay que ajustar la posición.
 [HarmonyPatch(typeof(CursorPreview), nameof(CursorPreview.UpdateCursorPreview))]
-internal static class DiagnosticoSiluetaBuzo
+internal static class ParcheSiluetaBuzo
 {
-    private static float _ultimo;
+    private static Sprite _imagen;
+    private static bool _intentado;
+    private static bool _anotadoBuzo;
+    private static bool _anotadoDelfin;
 
     private static void Postfix(CursorPreview __instance, int playerIndex)
     {
-        if (!MapaVersus.Piscina || Time.unscaledTime - _ultimo < 1f)
+        if (!MapaVersus.Piscina)
         {
             return;
         }
-        var tablero = MapaVersus.TableroActual;
-        var cursor = tablero?.CursorObjects?[playerIndex];
-        if (cursor == null || cursor.mType != MapaVersus.CartaBuzo)
+        var cursor = MapaVersus.TableroActual?.CursorObjects?[playerIndex];
+        var objeto = __instance.mController != null ? __instance.mController.gameObject : null;
+        if (cursor == null || objeto == null)
         {
             return;
         }
-        _ultimo = Time.unscaledTime;
-        var vista = __instance.mController;
-        var objeto = vista != null ? vista.gameObject : null;
-        VersusBotMod.Log.Msg("Silueta buzo J" + (playerIndex + 1) + ": columna " + (__instance.mGridX + 1) + ", fila " + (__instance.mGridY + 1)
-            + " cursor=" + cursor.mCursorType + " vista=" + (vista != null)
-            + " activa=" + (objeto != null && objeto.activeInHierarchy)
-            + " pos=" + (objeto != null ? objeto.transform.position.ToString() : "-"));
-        if (objeto == null || __instance.mGridY < 0)
+        var renderers = objeto.GetComponentsInChildren<SpriteRenderer>(true);
+        if (cursor.mType == MapaVersus.CartaDelfin)
+        {
+            if (!_anotadoDelfin && renderers.Length > 0 && renderers[0].sprite != null)
+            {
+                _anotadoDelfin = true;
+                VersusBotMod.Log.Msg("Silueta del delfín: posición local " + renderers[0].transform.localPosition + ", escala " + renderers[0].transform.localScale);
+            }
+            return;
+        }
+        if (cursor.mType != MapaVersus.CartaBuzo)
         {
             return;
         }
-        // qué imágenes lleva la silueta y si se pueden ver
-        var imagenes = objeto.GetComponentsInChildren<SpriteRenderer>(true);
-        for (var i = 0; i < imagenes.Length; i++)
+        var imagen = Imagen();
+        if (imagen == null)
         {
-            var r = imagenes[i];
-            VersusBotMod.Log.Msg("  imagen " + r.gameObject.name + ": sprite=" + (r.sprite != null ? r.sprite.name : "ninguno")
-                + " encendida=" + r.enabled + " activa=" + r.gameObject.activeInHierarchy + " alfa=" + r.color.a
-                + " escala=" + r.transform.lossyScale + " pos=" + r.transform.position
-                + " capa=" + r.sortingLayerName + "/" + r.sortingOrder);
+            return;
         }
-        if (imagenes.Length == 0)
+        for (var i = 0; i < renderers.Length; i++)
         {
-            VersusBotMod.Log.Msg("  la silueta no tiene imágenes");
+            var r = renderers[i];
+            if (r.sprite != null)
+            {
+                continue;
+            }
+            r.sprite = imagen;
+            if (!_anotadoBuzo)
+            {
+                _anotadoBuzo = true;
+                VersusBotMod.Log.Msg("Silueta del buzo: imagen puesta (" + imagen.name + "), posición local " + r.transform.localPosition + ", escala " + r.transform.localScale);
+            }
         }
+    }
+
+    private static Sprite Imagen()
+    {
+        if (_imagen != null || _intentado)
+        {
+            return _imagen;
+        }
+        _intentado = true;
+        var referencia = MapaVersus.ReferenciaSiluetaBuzo();
+        if (referencia == null || !referencia.RuntimeKeyIsValid())
+        {
+            VersusBotMod.Log.Warning("Silueta del buzo: su definición no trae imagen.");
+            return null;
+        }
+        _imagen = UnityEngine.AddressableAssets.Addressables.LoadAssetAsync<Sprite>(referencia.RuntimeKey).WaitForCompletion();
+        if (_imagen == null)
+        {
+            VersusBotMod.Log.Warning("Silueta del buzo: no se pudo cargar su imagen.");
+        }
+        return _imagen;
     }
 
     private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
