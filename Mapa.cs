@@ -2204,6 +2204,9 @@ internal static class CodigoDeCartas
 [HarmonyPatch(typeof(CursorPreview), nameof(CursorPreview.UpdateCursorPreview))]
 internal static class ParcheSiluetaBuzo
 {
+    // Posición local de la silueta del delfín ya corregida (desplazamiento del juego + corrección del mod),
+    // medida en el registro: (116, -50).
+    private static readonly Vector2 PosicionSiluetaDelfin = new Vector2(116f, -50f);
     private static Sprite _imagen;
     private static bool _intentado;
     private static bool _anotadoBuzo;
@@ -2248,6 +2251,8 @@ internal static class ParcheSiluetaBuzo
                 continue;
             }
             r.sprite = imagen;
+            // Sin desplazamiento quedaba corrida hacia adelante: se usa la posición que el juego da a la del delfín.
+            r.transform.localPosition = new Vector3(PosicionSiluetaDelfin.x, PosicionSiluetaDelfin.y, r.transform.localPosition.z);
             if (!_anotadoBuzo)
             {
                 _anotadoBuzo = true;
