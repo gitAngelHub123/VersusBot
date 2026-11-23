@@ -19,6 +19,86 @@ internal static class ReglasDeNoche
         MapaVersus.Noche && tablero != null && MapaVersus.EsVersus(tablero.mApp);
 }
 
+// La carta fija del jugador de plantas: el Girasol de día, la Seta solar de noche.
+// El juego la mete en el banco con mCrazyDavePicked (la marca de las cartas que elige Dave el Loco),
+// que es lo que impide quitarla. Al cambiar de mapa se intercambia con la otra, marca incluida.
+internal static class CartaFija
+{
+    internal static void Ajustar(SeedChooserScreen selector)
+    {
+        var tablero = selector?.mBoard;
+        if (tablero == null || !MapaVersus.EsVersus(tablero.mApp))
+        {
+            return;
+        }
+        var quitar = MapaVersus.Noche ? SeedType.Sunflower : SeedType.Sunshroom;
+        var poner = MapaVersus.Noche ? SeedType.Sunshroom : SeedType.Sunflower;
+        var vieja = selector.GetChosenSeedFromType(quitar);
+        if (vieja == null || vieja.mSeedState != ChosenSeedState.SeedInBank || !vieja.mCrazyDavePicked)
+        {
+            return;
+        }
+        var nueva = selector.GetChosenSeedFromType(poner);
+        var bancos = tablero.SeedBanks;
+        var jugador = vieja.mPlayerIndex;
+        // Versus tiene 2 jugadores: índice 0 o 1.
+        if (nueva == null || bancos == null || jugador < 0 || jugador > 1 || bancos[jugador] == null)
+        {
+            return;
+        }
+        var paquetes = bancos[jugador].mSeedPackets;
+        var indice = vieja.mSeedIndexInBank;
+        if (paquetes == null || indice < 0 || indice >= paquetes.Length)
+        {
+            return;
+        }
+        if (nueva.mSeedState == ChosenSeedState.SeedInBank)
+        {
+            // Ya la había elegido a mano: se cambian de lugar y la marca pasa a la nueva.
+            var otro = nueva.mSeedIndexInBank;
+            if (otro < 0 || otro >= paquetes.Length)
+            {
+                return;
+            }
+            (nueva.mX, vieja.mX) = (vieja.mX, nueva.mX);
+            (nueva.mY, vieja.mY) = (vieja.mY, nueva.mY);
+            nueva.mSeedIndexInBank = indice;
+            vieja.mSeedIndexInBank = otro;
+            paquetes[otro].SetPacketType(quitar, SeedType.None);
+        }
+        else
+        {
+            // La nueva toma el lugar de la fija y la vieja vuelve al selector.
+            nueva.mSeedState = ChosenSeedState.SeedInBank;
+            nueva.mSeedIndexInBank = indice;
+            nueva.mPlayerIndex = jugador;
+            nueva.mX = vieja.mX;
+            nueva.mY = vieja.mY;
+            vieja.mSeedState = ChosenSeedState.SeedInChooser;
+            vieja.mSeedIndexInBank = -1;
+            int x = 0, y = 0;
+            selector.GetSeedPositionInChooser((int)quitar, ref x, ref y);
+            vieja.mX = x;
+            vieja.mY = y;
+        }
+        nueva.mCrazyDavePicked = true;
+        vieja.mCrazyDavePicked = false;
+        paquetes[indice].SetPacketType(poner, SeedType.None);
+        VersusBotMod.Log.Msg("Carta fija de las plantas: " + quitar + " → " + poner + " (espacio " + (indice + 1) + ")");
+    }
+}
+
+[HarmonyPatch(typeof(SeedChooserScreen), nameof(SeedChooserScreen.Update))]
+internal static class ParcheCartaFija
+{
+    private static void Postfix(SeedChooserScreen __instance)
+    {
+        CartaFija.Ajustar(__instance);
+    }
+
+    private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
+}
+
 // Sin niebla en la piscina de noche.
 [HarmonyPatch(typeof(Board), nameof(Board.StageHasFog))]
 internal static class ParcheSinNiebla
