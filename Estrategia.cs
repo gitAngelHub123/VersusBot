@@ -36,6 +36,11 @@ internal static class Estrategia
     private const float ValorEconomiaBajoPresion = 50f;
     private const float ValorOfensiva = 130f;
     private const float ValorRelleno = 40f;
+    // De noche el bot quiere esta cantidad más de setas solares que de girasoles de día (pedido del usuario).
+    private const int SetasSolaresExtra = 2;
+    // La seta gratis no pasa de esta columna: más adelante queda en la zona de los zombis.
+    private const int ColumnaSetaGratisMaxima = 5;
+    private static readonly Random AzarSeta = new Random();
     private const float ValorDesconocida = 20f;
     private const float ValorCafe = 350f;
     private const float ValorIman = 300f;
@@ -169,7 +174,8 @@ internal static class Estrategia
             Array.Clear(HistorialPorFila, 0, HistorialPorFila.Length);
             ZombisContados.Clear();
         }
-        _esDeNoche = tablero.StageIsNight();
+        // En los mapas de noche del mod el fondo puede leerse como de día (piscina): manda el mapa elegido.
+        _esDeNoche = tablero.StageIsNight() || ReglasDeNoche.Activas(tablero);
         Vivos.Clear();
         Muertos.Clear();
         Array.Clear(TumbasPorFila, 0, TumbasPorFila.Length);
@@ -597,6 +603,9 @@ internal static class Estrategia
         if (tipo == SeedType.Cherrybomb) return Explotar(tablero, tipo);
         if (tipo == SeedType.Gravebuster) return RomperTumba(tablero, tipo);
         if (tipo == SeedType.Sunflower) return PonerGirasol(tablero, tipo, girasolesDeseados);
+        // De noche la economía es la seta solar, y el bot quiere más que de día para poder defender.
+        if (tipo == SeedType.Sunshroom) return PonerGirasol(tablero, tipo, girasolesDeseados + (_esDeNoche ? SetasSolaresExtra : 0));
+        if (tipo == SeedType.Puffshroom) return PonerSetaGratis(tablero, tipo);
         if (tipo == SeedType.Twinsunflower) return PonerGirasolDoble(tablero, tipo);
         if (tipo == SeedType.Torchwood) return PonerAntorcha(tablero, tipo);
         if (tipo == SeedType.Pumpkinshell) return PonerCalabaza(tablero, tipo);
@@ -839,9 +848,74 @@ internal static class Estrategia
         return mejor;
     }
 
+    // Plantas que dan sol: girasol, girasol gemelo y seta solar.
+    private static int ContarEconomia(Board tablero)
+    {
+        var total = 0;
+        for (var fila = 0; fila < Filas; fila++)
+        {
+            total += ContarEnFila(tablero, fila, t => t == SeedType.Sunflower || t == SeedType.Twinsunflower || t == SeedType.Sunshroom);
+        }
+        return total;
+    }
+
+    // La seta gratis va siempre: a la fila con más peligro de caer, cerca del zombi; sin peligro, a cualquier
+    // fila con espacio, también a las de agua si ya tienen nenúfar.
+    private static Casilla PonerSetaGratis(Board tablero, SeedType tipo)
+    {
+        var mejorFila = -1;
+        var mayor = 0f;
+        for (var fila = 0; fila < Filas; fila++)
+        {
+            var peligro = DeficitPonderado(fila);
+            if (peligro > mayor && !FilaSinInteres(fila))
+            {
+                mayor = peligro;
+                mejorFila = fila;
+            }
+        }
+        if (mejorFila >= 0)
+        {
+            // Lo más adelante posible sin pasar al zombi más cercano de esa fila (su alcance es corto).
+            var tope = ColumnaSetaGratisMaxima;
+            foreach (var zombi in Vivos)
+            {
+                if (zombi.mRow == mejorFila && !zombi.mMindControlled)
+                {
+                    tope = Math.Min(tope, ColumnaDe(tablero, zombi) - 1);
+                }
+            }
+            for (var columna = Math.Max(0, tope); columna >= 0; columna--)
+            {
+                if (tablero.CanPlantAt(columna, mejorFila, tipo) == PlantingReason.Ok)
+                {
+                    return new Casilla { Columna = columna, Fila = mejorFila, Valor = ValorInstantanea, Motivo = "seta gratis en la fila con más peligro" + DescribirFila(mejorFila) };
+                }
+            }
+        }
+        // Sin peligro: cualquier fila con espacio, empezando por una al azar para repartirlas.
+        var inicio = AzarSeta.Next(Filas);
+        for (var i = 0; i < Filas; i++)
+        {
+            var fila = (inicio + i) % Filas;
+            if (FilaSinInteres(fila))
+            {
+                continue;
+            }
+            for (var columna = ColumnaSetaGratisMaxima; columna >= 0; columna--)
+            {
+                if (tablero.CanPlantAt(columna, fila, tipo) == PlantingReason.Ok)
+                {
+                    return new Casilla { Columna = columna, Fila = fila, Valor = ValorRelleno, Motivo = "seta gratis" + DescribirFila(fila) };
+                }
+            }
+        }
+        return null;
+    }
+
     private static Casilla PonerGirasol(Board tablero, SeedType tipo, int deseados)
     {
-        var girasoles = tablero.CountSunFlowers();
+        var girasoles = ContarEconomia(tablero);
         if (girasoles >= deseados)
         {
             return null;
