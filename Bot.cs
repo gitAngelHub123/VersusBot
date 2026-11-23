@@ -240,7 +240,7 @@ internal sealed class Bot
     // así que las respuestas entran apenas el rival elige el zombi:
     // 1. Seta desesporada (gratis), siempre de noche.
     // 2. Respuestas al rival: globo → Cactus; Zomboni → Calabaza aplastadora; minero → Guisante partido;
-    //    balde o fútbol americano → Hipnoseta (solo entonces).
+    //    balde o fútbol americano → Papapum (pedido del usuario: sirve mejor que la Hipnoseta).
     // 3. Seta miedica; Grano de café solo de día; Zampalga en la piscina; Papapum de día o Humoseta de noche;
     //    Nuez si sobra espacio.
     private static List<SeedType> ConjuntoPreferido(Func<SeedType, bool> rivalLleva)
@@ -265,7 +265,7 @@ internal sealed class Bot
         }
         if (rivalLleva(SeedType.ZombiePail) || rivalLleva(SeedType.ZombieFootball))
         {
-            conjunto.Add(SeedType.Hypnoshroom);
+            conjunto.Add(SeedType.Potatomine);
         }
         conjunto.Add(SeedType.Scaredyshroom);
         if (!noche)
