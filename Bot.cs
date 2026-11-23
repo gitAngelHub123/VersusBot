@@ -793,8 +793,10 @@ internal sealed class Bot
             }
             if (!tablero.CanTakeSunMoney(carta.GetCost(), _indice))
             {
-                // Lo mejor que aún no se puede pagar: en nivel alto se ahorra para ello.
-                if (!esZombi && VersusBotMod.Nivel >= NivelAnticipa)
+                // Lo mejor que aún no se puede pagar: en nivel alto se ahorra para ello. Para un atacante
+                // (repetidora, guisante de hielo...) se ahorra en cualquier nivel: en nivel 50 el bot gastaba
+                // todo en cartas baratas y casi nunca llegaba a plantar guisantes.
+                if (!esZombi && (VersusBotMod.Nivel >= NivelAnticipa || Cartas.EsAtaqueIndependiente(carta.mPacketType)))
                 {
                     var soñada = Estrategia.MejorCasilla(tablero, carta.mPacketType, esZombi, EconomiaDeseada(esZombi));
                     if (soñada != null && soñada.Valor > mejorSinPagar)
