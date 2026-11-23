@@ -21,9 +21,16 @@ internal static class ParcheVentajaDeSol
     internal static float FactorSegunNivel =>
         1f + (FactorSolDelBot - 1f) * UnityEngine.Mathf.Clamp01((VersusBotMod.Nivel - NivelSinVentaja) / (float)(Bot.NivelMaestro - NivelSinVentaja));
 
+    // Fracción de la ventaja según el nivel: 0 en el 100, 1 en el 200.
+    internal static float FraccionSegunNivel =>
+        UnityEngine.Mathf.Clamp01((VersusBotMod.Nivel - NivelSinVentaja) / (float)(Bot.NivelMaestro - NivelSinVentaja));
+
+    // Para sumar sol sin pasar por la ventaja (la devolución del café ya viene calculada).
+    internal static bool SinVentaja { get; set; }
+
     private static void Prefix(Board __instance, ref int theAmount, int playerIndex)
     {
-        if (theAmount <= 0 || VersusBotMod.Nivel <= NivelSinVentaja || !VersusBotMod.JugadorEsBot(playerIndex))
+        if (SinVentaja || theAmount <= 0 || VersusBotMod.Nivel <= NivelSinVentaja || !VersusBotMod.JugadorEsBot(playerIndex))
         {
             return;
         }
@@ -33,6 +40,45 @@ internal static class ParcheVentajaDeSol
             return;
         }
         theAmount = Mathf.RoundToInt(theAmount * FactorSegunNivel);
+    }
+
+    private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
+}
+
+// De día cada seta del bot necesita un Grano de café, y cada seta comida vuelve a pedirlo: en la prueba
+// de piscina de día el bot plantó 25 cafés y pasó casi la mitad de la partida sin soles. Para que el día
+// sea tan parejo como la noche (donde no hace falta café), al bot de plantas se le devuelve el café
+// según el nivel: todo en el 200, nada en el 100.
+[HarmonyPatch(typeof(Plant), nameof(Plant.PlantInitialize))]
+internal static class ParcheCafeDelBot
+{
+    private static void Postfix(Plant __instance)
+    {
+        var tablero = __instance.mBoard;
+        if (__instance.mSeedType != SeedType.InstantCoffee || tablero?.mApp == null || !tablero.mApp.IsVersusMode()
+            || VersusBotMod.Nivel <= 100)
+        {
+            return;
+        }
+        var versus = tablero.mApp.VersusMode;
+        if (versus == null || !VersusBotMod.JugadorEsBot(versus.PlantPlayerIndex))
+        {
+            return;
+        }
+        var devolucion = Mathf.RoundToInt(Plant.GetCost(tablero.mApp, SeedType.InstantCoffee, SeedType.None) * ParcheVentajaDeSol.FraccionSegunNivel);
+        if (devolucion <= 0)
+        {
+            return;
+        }
+        ParcheVentajaDeSol.SinVentaja = true;
+        try
+        {
+            tablero.AddSunMoney(devolucion, versus.PlantPlayerIndex);
+        }
+        finally
+        {
+            ParcheVentajaDeSol.SinVentaja = false;
+        }
     }
 
     private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
