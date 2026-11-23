@@ -970,9 +970,34 @@ internal static class MapaVersus
         }
     }
 
+    // Carta que tiene en la mano el jugador que hace clic. Manda la del cursor del juego (es la que el juego
+    // usa para colocar); la guardada al activar la carta queda de respaldo. Con teclado o mando el número de
+    // jugador al activar la carta no siempre coincide con el del clic: así el delfín salía como Imp y el buzo
+    // como zombi normal (1.0.1).
+    private static SeedType CartaDelJugador(Board tablero, int jugador)
+    {
+        if (jugador < 0 || jugador >= CartaEnMano.Length)
+        {
+            return SeedType.None;
+        }
+        try
+        {
+            var cursor = tablero?.CursorObjects?[jugador];
+            if (cursor != null && cursor.mType != SeedType.None)
+            {
+                return cursor.mType;
+            }
+        }
+        catch (Exception)
+        {
+            // si el juego cambia CursorObjects, queda el respaldo
+        }
+        return CartaEnMano[jugador];
+    }
+
     internal static bool EnviarClicDeBuzo(Board tablero, int x, int y, int clics, int jugador)
     {
-        if (!Piscina || jugador < 0 || jugador >= CartaEnMano.Length || CartaEnMano[jugador] != CartaBuzo || tablero.mChallenge == null)
+        if (!Piscina || tablero == null || tablero.mChallenge == null || CartaDelJugador(tablero, jugador) != CartaBuzo)
         {
             return true;
         }
@@ -980,9 +1005,9 @@ internal static class MapaVersus
         return false;
     }
 
-    internal static void EmpezarColocacion(int jugador)
+    internal static void EmpezarColocacion(Challenge reto, int jugador)
     {
-        _colocando = Piscina && jugador >= 0 && jugador < CartaEnMano.Length ? CartaEnMano[jugador] : SeedType.None;
+        _colocando = Piscina ? CartaDelJugador(reto?.mBoard, jugador) : SeedType.None;
     }
 
     internal static void TerminarColocacion()
@@ -1552,9 +1577,9 @@ internal static class ParcheClicConBuzo
 [HarmonyPatch(typeof(Challenge), nameof(Challenge.IZombieMouseDownWithZombie))]
 internal static class ParcheClicDeZombiNuevo
 {
-    private static void Prefix(int playerIndex)
+    private static void Prefix(Challenge __instance, int playerIndex)
     {
-        MapaVersus.EmpezarColocacion(playerIndex);
+        MapaVersus.EmpezarColocacion(__instance, playerIndex);
     }
 
     private static void Postfix()
