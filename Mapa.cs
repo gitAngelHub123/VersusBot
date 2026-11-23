@@ -84,33 +84,7 @@ internal static class MapaVersus
     internal static bool Noche { get; private set; }
     internal static bool MapaPropio => Piscina || Noche;
 
-    // El botón muestra el mapa al que se pasa: Jardín → Piscina → Noche → Piscina de noche → Jardín.
-    internal static string EtiquetaBoton => !Piscina && !Noche ? Textos.Piscina
-        : Piscina && !Noche ? Textos.Noche
-        : !Piscina ? Textos.PiscinaDeNoche
-        : Textos.Jardin;
-
-    private static void Siguiente()
-    {
-        if (!Piscina && !Noche)
-        {
-            Piscina = true;
-        }
-        else if (Piscina && !Noche)
-        {
-            Piscina = false;
-            Noche = true;
-        }
-        else if (!Piscina)
-        {
-            Piscina = true;
-        }
-        else
-        {
-            Piscina = false;
-            Noche = false;
-        }
-    }
+    internal static bool EsElMapa(bool piscina, bool noche) => Piscina == piscina && Noche == noche;
 
     private static string NombreDelMapa => Piscina ? (Noche ? "piscina de noche" : "piscina") : (Noche ? "jardín de noche" : "jardín");
 
@@ -163,11 +137,17 @@ internal static class MapaVersus
         }
     }
 
-    internal static void Cambiar()
+    // Cada uno de los 4 botones elige su mapa directamente.
+    internal static void Elegir(bool piscina, bool noche)
     {
+        if (EsElMapa(piscina, noche))
+        {
+            return;
+        }
         var piscinaAntes = Piscina;
         var nocheAntes = Noche;
-        Siguiente();
+        Piscina = piscina;
+        Noche = noche;
         try
         {
             var tablero = TableroActual;
