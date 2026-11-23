@@ -1127,6 +1127,12 @@ internal static class MapaVersus
         }
         VersusBotMod.Log.Msg("Silueta: delfín " + delfin.m_previewSpriteOffset + " imagen=" + (delfin.m_previewSprite != null && delfin.m_previewSprite.RuntimeKeyIsValid()) + ", buzo " + buzo?.m_previewSpriteOffset + " imagen=" + (buzo?.m_previewSprite != null && buzo.m_previewSprite.RuntimeKeyIsValid()) + ", normal " + normal?.m_previewSpriteOffset);
         delfin.m_previewSpriteOffset += CorreccionSiluetaDelfin;
+        // El buzo trae el mismo desplazamiento sin corregir que tenía el delfín (-4, 90): se le aplica la misma corrección.
+        if (buzo != null)
+        {
+            buzo.m_previewSpriteOffset += CorreccionSiluetaDelfin;
+            VersusBotMod.Log.Msg("Silueta del buzo: desplazamiento " + buzo.m_previewSpriteOffset + ", escala " + buzo.m_previewSpriteScale + " (delfín escala " + delfin.m_previewSpriteScale + ")");
+        }
     }
 
     private static readonly SeedType[] OrdenDeCartas =
@@ -2220,6 +2226,24 @@ internal static class DiagnosticoSiluetaBuzo
             + " cursor=" + cursor.mCursorType + " vista=" + (vista != null)
             + " activa=" + (objeto != null && objeto.activeInHierarchy)
             + " pos=" + (objeto != null ? objeto.transform.position.ToString() : "-"));
+        if (objeto == null || __instance.mGridY < 0)
+        {
+            return;
+        }
+        // qué imágenes lleva la silueta y si se pueden ver
+        var imagenes = objeto.GetComponentsInChildren<SpriteRenderer>(true);
+        for (var i = 0; i < imagenes.Length; i++)
+        {
+            var r = imagenes[i];
+            VersusBotMod.Log.Msg("  imagen " + r.gameObject.name + ": sprite=" + (r.sprite != null ? r.sprite.name : "ninguno")
+                + " encendida=" + r.enabled + " activa=" + r.gameObject.activeInHierarchy + " alfa=" + r.color.a
+                + " escala=" + r.transform.lossyScale + " pos=" + r.transform.position
+                + " capa=" + r.sortingLayerName + "/" + r.sortingOrder);
+        }
+        if (imagenes.Length == 0)
+        {
+            VersusBotMod.Log.Msg("  la silueta no tiene imágenes");
+        }
     }
 
     private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
