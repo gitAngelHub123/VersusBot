@@ -20,87 +20,33 @@ internal static class ReglasDeNoche
 }
 
 // La carta fija del jugador de plantas: el Girasol de día, la Seta solar de noche.
-// El juego la mete en el banco con mCrazyDavePicked (la marca de las cartas que elige Dave el Loco),
-// que es lo que impide quitarla. Al cambiar de mapa se intercambia con la otra, marca incluida.
+// En Versus el juego pone el Girasol directo en el espacio 1 del banco (no pasa por la lista
+// de cartas elegidas) y lo bloquea en el selector con SeedNotAllowedToPick.
+// Aquí se cambia ese espacio según el mapa; el bloqueo del selector está en ParcheNenufarPermitido.
 internal static class CartaFija
 {
+    internal static SeedType Actual => MapaVersus.Noche ? SeedType.Sunshroom : SeedType.Sunflower;
+
     internal static void Ajustar(SeedChooserScreen selector)
     {
         var tablero = selector?.mBoard;
-        if (tablero == null || !MapaVersus.EsVersus(tablero.mApp))
+        if (tablero == null || !MapaVersus.EsVersus(tablero.mApp) || tablero.SeedBanks == null)
         {
             return;
         }
         var quitar = MapaVersus.Noche ? SeedType.Sunflower : SeedType.Sunshroom;
-        var poner = MapaVersus.Noche ? SeedType.Sunshroom : SeedType.Sunflower;
-        var vieja = selector.GetChosenSeedFromType(quitar);
-        AnotarUnaVez(quitar, vieja);
-        if (vieja == null || vieja.mSeedState != ChosenSeedState.SeedInBank || !vieja.mCrazyDavePicked)
+        // Versus tiene 2 jugadores: el banco de las plantas es el que tiene la carta fija en el espacio 1.
+        for (var jugador = 0; jugador <= 1; jugador++)
         {
-            return;
-        }
-        var nueva = selector.GetChosenSeedFromType(poner);
-        var bancos = tablero.SeedBanks;
-        var jugador = vieja.mPlayerIndex;
-        // Versus tiene 2 jugadores: índice 0 o 1.
-        if (nueva == null || bancos == null || jugador < 0 || jugador > 1 || bancos[jugador] == null)
-        {
-            return;
-        }
-        var paquetes = bancos[jugador].mSeedPackets;
-        var indice = vieja.mSeedIndexInBank;
-        if (paquetes == null || indice < 0 || indice >= paquetes.Length)
-        {
-            return;
-        }
-        if (nueva.mSeedState == ChosenSeedState.SeedInBank)
-        {
-            // Ya la había elegido a mano: se cambian de lugar y la marca pasa a la nueva.
-            var otro = nueva.mSeedIndexInBank;
-            if (otro < 0 || otro >= paquetes.Length)
+            var banco = tablero.SeedBanks[jugador];
+            var paquetes = banco?.mSeedPackets;
+            if (paquetes == null || paquetes.Length == 0 || paquetes[0] == null || paquetes[0].mPacketType != quitar)
             {
-                return;
+                continue;
             }
-            (nueva.mX, vieja.mX) = (vieja.mX, nueva.mX);
-            (nueva.mY, vieja.mY) = (vieja.mY, nueva.mY);
-            nueva.mSeedIndexInBank = indice;
-            vieja.mSeedIndexInBank = otro;
-            paquetes[otro].SetPacketType(quitar, SeedType.None);
+            paquetes[0].SetPacketType(Actual, SeedType.None);
+            VersusBotMod.Log.Msg("Carta fija de las plantas: " + quitar + " → " + Actual + " (jugador " + (jugador + 1) + ")");
         }
-        else
-        {
-            // La nueva toma el lugar de la fija y la vieja vuelve al selector.
-            nueva.mSeedState = ChosenSeedState.SeedInBank;
-            nueva.mSeedIndexInBank = indice;
-            nueva.mPlayerIndex = jugador;
-            nueva.mX = vieja.mX;
-            nueva.mY = vieja.mY;
-            vieja.mSeedState = ChosenSeedState.SeedInChooser;
-            vieja.mSeedIndexInBank = -1;
-            int x = 0, y = 0;
-            selector.GetSeedPositionInChooser((int)quitar, ref x, ref y);
-            vieja.mX = x;
-            vieja.mY = y;
-        }
-        nueva.mCrazyDavePicked = true;
-        vieja.mCrazyDavePicked = false;
-        paquetes[indice].SetPacketType(poner, SeedType.None);
-        VersusBotMod.Log.Msg("Carta fija de las plantas: " + quitar + " → " + poner + " (espacio " + (indice + 1) + ")");
-    }
-
-    // DIAGNÓSTICO (temporal): cómo ve el mod la carta a quitar, una vez por mapa.
-    private static SeedType _anotada = SeedType.None;
-
-    private static void AnotarUnaVez(SeedType carta, ChosenSeed elegida)
-    {
-        if (_anotada == carta)
-        {
-            return;
-        }
-        _anotada = carta;
-        VersusBotMod.Log.Msg("Carta fija, revisando " + carta + ": "
-            + (elegida == null ? "no encontrada"
-                : "estado=" + elegida.mSeedState + " fija=" + elegida.mCrazyDavePicked + " jugador=" + elegida.mPlayerIndex + " espacio=" + elegida.mSeedIndexInBank));
     }
 }
 

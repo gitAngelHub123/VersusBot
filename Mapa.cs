@@ -1982,6 +1982,12 @@ internal static class ParcheNenufarPermitido
         {
             __result = false;
         }
+        // De noche la carta fija es la Seta solar: queda bloqueada en el selector y el Girasol se puede elegir.
+        else if (MapaVersus.Noche && (theSeedType == SeedType.Sunshroom || theSeedType == SeedType.Sunflower)
+            && VersusBotMod.Datos != null && VersusBotMod.Datos.m_gameplayService.IsVSMode)
+        {
+            __result = theSeedType == SeedType.Sunshroom;
+        }
     }
 }
 
