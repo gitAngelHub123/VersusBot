@@ -166,6 +166,26 @@ internal static class ParcheSetasDespiertas
     private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
 }
 
+// En los mapas de noche las setas solares nacen grandes (dan 25 en vez de 15).
+// El juego las planta pequeñas con 12000 ciclos (120 s) para crecer; aquí se deja en 1 y
+// crecen enseguida con su propia animación.
+[HarmonyPatch(typeof(Plant), nameof(Plant.PlantInitialize))]
+internal static class ParcheSetaSolarGrande
+{
+    private const int CicloParaCrecer = 1;
+
+    private static void Postfix(Plant __instance)
+    {
+        if (__instance.mSeedType == SeedType.Sunshroom && __instance.mState == PlantState.SunshroomSmall
+            && __instance.mStateCountdown > CicloParaCrecer && ReglasDeNoche.Activas(__instance.mBoard))
+        {
+            __instance.mStateCountdown = CicloParaCrecer;
+        }
+    }
+
+    private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
+}
+
 // Tumbas de los zombis: su contador baja de 1 en 1 cada ciclo; de noche baja de 2 en 2.
 [HarmonyPatch(typeof(Zombie), nameof(Zombie.UpdateGravestone))]
 internal static class ParcheTumbasDeNoche
