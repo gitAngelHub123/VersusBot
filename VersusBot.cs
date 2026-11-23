@@ -21,7 +21,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-[assembly: MelonInfo(typeof(VersusBot.VersusBotMod), "Versus Bot", "1.0.1", "Angel")]
+[assembly: MelonInfo(typeof(VersusBot.VersusBotMod), "Versus Bot", "1.1.0", "Angel")]
 [assembly: MelonGame("PopCap Games", "PvZ Replanted")]
 
 namespace VersusBot;
@@ -63,6 +63,18 @@ public class VersusBotMod : MelonMod
     private static MelonPreferences_Entry<int> _modo;
     private static MelonPreferences_Entry<int> _nivel;
     private static MelonPreferences_Entry<bool> _detalle;
+    private static MelonPreferences_Entry<int> _mapa;
+
+    // El mapa elegido se guarda para la próxima vez que se abra el juego.
+    internal static void GuardarMapa(int mapa)
+    {
+        if (_mapa == null || _mapa.Value == mapa)
+        {
+            return;
+        }
+        _mapa.Value = mapa;
+        MelonPreferences.Save();
+    }
 
     internal static void Detalle(string texto)
     {
@@ -86,6 +98,8 @@ public class VersusBotMod : MelonMod
         _detalle = categoria.CreateEntry("RegistroDetallado", false, "Anota en el registro los mensajes de diagnóstico");
         Log.Msg("Versión del juego: " + Application.version + " (el mod se probó con la 1.5.1469)");
         _nivel = categoria.CreateEntry("Dificultad", NivelInicial, "Dificultad del bot, de 1 a 200");
+        _mapa = categoria.CreateEntry("Mapa", 0, "0 = Jardín, 1 = Jardín de noche, 2 = Piscina, 3 = Piscina de noche");
+        MapaVersus.Cargar(_mapa.Value);
         _modo.Value = (int)ModoJuego.UnJugador;
     }
 

@@ -23,6 +23,9 @@ namespace VersusBot;
 internal static class MapaVersus
 {
     private const int NivelDePiscina = 21;
+    // Primeros niveles de noche y de piscina de noche en el modo aventura (si no calzan, se busca por zona).
+    private const int NivelDeNoche = 11;
+    private const int NivelDePiscinaDeNoche = 31;
     private const int PrimeraFilaDeAgua = 2;
     private const int UltimaFilaDeAgua = 3;
     // Las 3 columnas de la derecha quedan de pasto: es la zona donde entran los zombis.
@@ -75,8 +78,29 @@ internal static class MapaVersus
     private const int DesplazamientoDatos = 0x20;
     private const int TamanoLimite = 16;
 
+    // Mapas: jardín (el del juego), piscina, jardín de noche y piscina de noche (1.1.0).
+    // Piscina = el tablero lleva agua; Noche = fondo y reglas de noche (sin niebla).
     internal static bool Piscina { get; private set; }
-    internal static string EtiquetaBoton => Piscina ? Textos.Jardin : Textos.Piscina;
+    internal static bool Noche { get; private set; }
+    internal static bool MapaPropio => Piscina || Noche;
+
+    internal static bool EsElMapa(bool piscina, bool noche) => Piscina == piscina && Noche == noche;
+
+    // Número guardado en las preferencias: 0 Jardín, 1 Jardín de noche, 2 Piscina, 3 Piscina de noche.
+    private static int NumeroDelMapa => (Piscina ? 2 : 0) + (Noche ? 1 : 0);
+
+    // Al abrir el juego: el mapa de la última vez (se aplica cuando se crea el tablero de Versus).
+    internal static void Cargar(int numero)
+    {
+        Piscina = numero == 2 || numero == 3;
+        Noche = numero == 1 || numero == 3;
+        if (MapaPropio)
+        {
+            VersusBotMod.Log.Msg("Mapa guardado: " + NombreDelMapa);
+        }
+    }
+
+    private static string NombreDelMapa => Piscina ? (Noche ? "piscina de noche" : "piscina") : (Noche ? "jardín de noche" : "jardín");
 
     private static GameplayActivity _partida;
     private static IntPtr _tableroGuardado;
@@ -121,15 +145,23 @@ internal static class MapaVersus
     {
         _partida = tablero.mApp;
         Guardar(tablero);
-        if (Piscina)
+        if (MapaPropio)
         {
             AplicarReglas(tablero);
         }
     }
 
-    internal static void Cambiar()
+    // Cada uno de los 4 botones elige su mapa directamente.
+    internal static void Elegir(bool piscina, bool noche)
     {
-        Piscina = !Piscina;
+        if (EsElMapa(piscina, noche))
+        {
+            return;
+        }
+        var piscinaAntes = Piscina;
+        var nocheAntes = Noche;
+        Piscina = piscina;
+        Noche = noche;
         try
         {
             var tablero = TableroActual;
@@ -139,20 +171,22 @@ internal static class MapaVersus
                 AplicarReglas(tablero);
                 PonerFondo(tablero);
             }
-            VersusBotMod.Log.Msg("Mapa: " + (Piscina ? "piscina" : "jardín") + (tablero == null ? " (se aplicará al crear el tablero)" : ""));
+            VersusBotMod.Log.Msg("Mapa: " + NombreDelMapa + (tablero == null ? " (se aplicará al crear el tablero)" : ""));
+            VersusBotMod.GuardarMapa(NumeroDelMapa);
         }
         catch (Exception e)
         {
-            Piscina = !Piscina;
+            Piscina = piscinaAntes;
+            Noche = nocheAntes;
             VersusBotMod.Log.Error("No se pudo cambiar el mapa: " + e);
         }
     }
 
-    // Una revancha crea otro tablero: hay que volver a poner la piscina.
+    // Una revancha crea otro tablero: hay que volver a poner el mapa elegido.
     internal static void Asegurar()
     {
         var tablero = TableroActual;
-        if (!Piscina || tablero == null)
+        if (!MapaPropio || tablero == null)
         {
             return;
         }
@@ -194,7 +228,11 @@ internal static class MapaVersus
 
     private static void AplicarReglas(Board tablero)
     {
-        tablero.mBackground = Piscina ? BackgroundType.Pool : _fondoOriginal;
+        // La piscina de noche queda como Pool: con Fog el juego dibuja su niebla aunque StageHasFog diga que no.
+        // El aspecto de noche lo da el fondo (datos del nivel de niebla) y las reglas de noche las maneja el mod
+        // (Noche.cs: setas despiertas, seta solar, cielo; el bot usa ReglasDeNoche.Activas).
+        tablero.mBackground = Piscina ? BackgroundType.Pool
+            : Noche ? BackgroundType.Night : _fondoOriginal;
         var filas = tablero.mPlantRow;
         for (var i = 0; i < filas.Length; i++)
         {
@@ -574,6 +612,8 @@ internal static class MapaVersus
     }
 
     // El juego pone el inicio en las líneas 2 y 4, y la 4 ahora es agua: pasa a la línea 5.
+    internal static bool EnInicio => Time.unscaledTime < _finDelInicio;
+
     internal static int FilaDeInicio(int fila)
     {
         return Piscina && fila == FilaInicialEnAgua && Time.unscaledTime < _finDelInicio ? FilaInicialEnPasto : fila;
@@ -1369,10 +1409,11 @@ internal static class MapaVersus
 
     private static void PonerFondo(Board tablero)
     {
-        var datos = Piscina ? BuscarDatosDePiscina() : _datosOriginales;
+        var datos = Piscina ? (Noche ? BuscarDatos(GameArea.Fog, NivelDePiscinaDeNoche) : BuscarDatos(GameArea.Pool, NivelDePiscina))
+            : Noche ? BuscarDatos(GameArea.Night, NivelDeNoche) : _datosOriginales;
         if (datos == null)
         {
-            VersusBotMod.Log.Warning("No se encontraron los datos del mapa de piscina.");
+            VersusBotMod.Log.Warning("No se encontraron los datos del mapa: " + NombreDelMapa + ".");
             return;
         }
         var anterior = _partida.BackgroundController;
@@ -1394,17 +1435,18 @@ internal static class MapaVersus
             + _partida.LevelBackground?.name + ". Fondos en escena: " + fondos);
     }
 
-    private static LevelEntryData BuscarDatosDePiscina()
+    // Datos del primer nivel de una zona del modo aventura (de ahí sale el fondo).
+    private static LevelEntryData BuscarDatos(GameArea zona, int nivel)
     {
-        var datos = _partida.GetLevelEntryData(NivelDePiscina);
-        if (datos != null && datos.GameArea == GameArea.Pool)
+        var datos = _partida.GetLevelEntryData(nivel);
+        if (datos != null && datos.GameArea == zona)
         {
             return datos;
         }
         foreach (var objeto in Resources.FindObjectsOfTypeAll(Il2CppType.Of<LevelEntryData>()))
         {
             var candidato = objeto.Cast<LevelEntryData>();
-            if (candidato.GameArea == GameArea.Pool)
+            if (candidato.GameArea == zona)
             {
                 return candidato;
             }
@@ -1613,6 +1655,8 @@ internal static class ParcheRangoDeCartas
     {
         CodigoDeCartas.PrepararSalidaDeZombis(MapaVersus.EsVersus(__instance.mApp));
         CodigoDeCartas.Ajustar(MapaVersus.Piscina && MapaVersus.EsVersus(__instance.mApp));
+        // Carta fija de las plantas según el mapa (Seta solar de noche, Girasol de día).
+        CartaFija.Ajustar(__instance.mApp?.SeedChooserScreen);
     }
 
     private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
@@ -1955,6 +1999,12 @@ internal static class ParcheNenufarPermitido
         {
             __result = false;
         }
+        // De noche la carta fija es la Seta solar: queda bloqueada en el selector y el Girasol se puede elegir.
+        else if (MapaVersus.Noche && (theSeedType == SeedType.Sunshroom || theSeedType == SeedType.Sunflower)
+            && VersusBotMod.Datos != null && VersusBotMod.Datos.m_gameplayService.IsVSMode)
+        {
+            __result = theSeedType == SeedType.Sunshroom;
+        }
     }
 }
 
@@ -1973,11 +2023,16 @@ internal static class ParcheNenufarRecomendado
 [HarmonyPatch(typeof(Board), nameof(Board.AddPlant))]
 internal static class ParchePlantaInicial
 {
-    private static void Prefix(ref int theGridY, SeedType theSeedType)
+    private static void Prefix(ref int theGridY, ref SeedType theSeedType)
     {
         if (theSeedType == SeedType.Sunflower)
         {
             theGridY = MapaVersus.FilaDeInicio(theGridY);
+            // En los mapas de noche, los 2 girasoles del inicio pasan a ser setas solares.
+            if (MapaVersus.Noche && MapaVersus.EnInicio)
+            {
+                theSeedType = SeedType.Sunshroom;
+            }
         }
     }
 }

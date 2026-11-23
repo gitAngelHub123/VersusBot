@@ -32,12 +32,18 @@ internal sealed class Bot
     private static int Filas => MapaVersus.Piscina ? FilasDePiscina : FilasDeDia;
     private const int IntentosPorCarta = 30;
     // Cada curva da su valor en estos niveles; entre dos puntos se interpola.
-    private static readonly int[] NivelesCurva = { 1, 25, 50, 75, 100, 150, 200 };
-    private static readonly float[] CurvaEspera = { 14f, 7f, 3.5f, 2f, 1f, 0.5f, 0.25f };
-    private static readonly float[] CurvaRecogida = { 5f, 3f, 1.6f, 0.9f, 0.5f, 0.25f, 0.1f };
-    private static readonly float[] CurvaColocar = { 1f, 0.8f, 0.6f, 0.5f, 0.4f, 0.25f, 0.15f };
-    private static readonly float[] CurvaInteligencia = { 0f, 0.15f, 0.55f, 0.85f, 1f, 1f, 1f };
-    private static readonly float[] CurvaPerderTurno = { 0.5f, 0.3f, 0.1f, 0f, 0f, 0f, 0f };
+    // El 200 es la dificultad que el usuario dio por buena (2026-11-23); cada 25 niveles menos el bot
+    // espera más entre jugadas, tarda más en colocar, piensa menos y pierde más turnos.
+    private static readonly int[] NivelesCurva = { 1, 25, 50, 75, 100, 125, 150, 175, 200 };
+    // Del 1 al 100 (pedido del usuario 2026-11-23): más lento pero menos torpe que antes.
+    private static readonly float[] CurvaEspera = { 16f, 9f, 5f, 3f, 1.8f, 1.1f, 0.8f, 0.5f, 0.25f };
+    private static readonly float[] CurvaRecogida = { 5f, 3f, 1.6f, 0.9f, 0.6f, 0.45f, 0.3f, 0.2f, 0.1f };
+    private static readonly float[] CurvaColocar = { 1.3f, 1.1f, 0.85f, 0.65f, 0.5f, 0.38f, 0.3f, 0.22f, 0.15f };
+    private static readonly float[] CurvaInteligencia = { 0.35f, 0.55f, 0.72f, 0.84f, 0.88f, 0.92f, 0.95f, 0.98f, 1f };
+    private static readonly float[] CurvaPerderTurno = { 0.25f, 0.15f, 0.06f, 0.04f, 0.03f, 0.02f, 0.01f, 0f, 0f };
+
+    // Probabilidad de jugar "pensando" en el nivel actual (también decide si responde al mazo del rival).
+    internal static float Inteligencia => SegunNivel(CurvaInteligencia);
     // Soles que las plantas guardan para emergencias, desde el nivel indicado.
     private const int NivelReserva1 = 100;
     private const int NivelReserva2 = 150;
@@ -236,6 +242,72 @@ internal sealed class Bot
         }
     }
 
+    // Conjunto de plantas del usuario (2026-11-23), en orden de prioridad. Se revisa en cada turno,
+    // así que las respuestas entran apenas el rival elige el zombi:
+    // 1. Seta desesporada (gratis), siempre de noche.
+    // 2. Respuestas al rival: globo → Cactus; Zomboni → Calabaza aplastadora; minero → Guisante partido;
+    //    balde o fútbol americano → Papapum (pedido del usuario: sirve mejor que la Hipnoseta).
+    // 3. Noche: Seta miedica, Zampalga en la piscina, Humoseta, Nuez si sobra espacio.
+    //    Día (rehecho 2026-11-23: el bot juntaba sol sin gastarlo): Repetidora y Guisante de hielo
+    //    (con la mitad devuelta, ver Ventaja.cs), Zampalga en la piscina, Papapum, Nuez.
+    private static List<SeedType> ConjuntoPreferido(Func<SeedType, bool> rivalLleva)
+    {
+        var noche = MapaVersus.Noche;
+        var conjunto = new List<SeedType>();
+        if (noche)
+        {
+            conjunto.Add(SeedType.Puffshroom);
+        }
+        if (rivalLleva(SeedType.ZombieBalloon))
+        {
+            conjunto.Add(SeedType.Cactus);
+        }
+        if (rivalLleva(SeedType.Zomboni))
+        {
+            conjunto.Add(SeedType.Squash);
+        }
+        if (rivalLleva(SeedType.ZombieDigger))
+        {
+            conjunto.Add(SeedType.Splitpea);
+        }
+        if (rivalLleva(SeedType.ZombiePail) || rivalLleva(SeedType.ZombieFootball))
+        {
+            conjunto.Add(SeedType.Potatomine);
+        }
+        if (noche)
+        {
+            conjunto.Add(SeedType.Scaredyshroom);
+        }
+        else
+        {
+            conjunto.Add(SeedType.Repeater);
+            conjunto.Add(SeedType.Snowpea);
+        }
+        if (MapaVersus.Piscina)
+        {
+            conjunto.Add(SeedType.Tanglekelp);
+        }
+        conjunto.Add(noche ? SeedType.Fumeshroom : SeedType.Potatomine);
+        // Espacio que sobre (lo decide el bot): la nuez frena a los zombis delante de los atacantes.
+        conjunto.Add(SeedType.Wallnut);
+        return conjunto;
+    }
+
+    // Por qué una carta no se puede elegir (para la recapitulación del registro).
+    private static string MotivoNoDisponible(SeedChooserScreen pantalla, Il2CppSystem.Collections.Generic.List<ChosenSeed> lista, SeedType tipo)
+    {
+        for (var i = 0; i < lista.Count; i++)
+        {
+            var carta = lista[i];
+            if (carta == null || carta.mSeedType != tipo)
+            {
+                continue;
+            }
+            return "estado=" + carta.mSeedState + ", no permitida=" + pantalla.SeedNotAllowedToPick(tipo);
+        }
+        return "no está en el selector";
+    }
+
     private static bool Disponible(SeedChooserScreen pantalla, ChosenSeed carta)
     {
         return carta != null && carta.mSeedState == ChosenSeedState.SeedInChooser
@@ -247,7 +319,7 @@ internal sealed class Bot
     // que dependa de otra entra solo si queda espacio para las dos.
     private ChosenSeed ElegirCartaDeMazo(SeedChooserScreen pantalla, Il2CppSystem.Collections.Generic.List<ChosenSeed> lista, bool esZombi)
     {
-        var economia = esZombi ? SeedType.ZombieGravestone : SeedType.Sunflower;
+        var economia = esZombi ? SeedType.ZombieGravestone : CartaFija.Actual;
         var propias = new HashSet<SeedType>();
         for (var i = 0; i < lista.Count; i++)
         {
@@ -260,7 +332,8 @@ internal sealed class Bot
             {
                 return carta;
             }
-            if (carta.mSeedState != ChosenSeedState.SeedInChooser && carta.mSeedType != economia && carta.mSeedType != SeedType.Lilypad)
+            if (carta.mSeedState != ChosenSeedState.SeedInChooser && carta.mSeedType != economia && carta.mSeedType != SeedType.Lilypad
+                && carta.mSeedType != SeedType.Sunflower && carta.mSeedType != SeedType.Sunshroom)
             {
                 propias.Add(carta.mSeedType);
             }
@@ -280,6 +353,34 @@ internal sealed class Bot
         var libres = CartasDeMazo - propias.Count;
         var elegidasRival = CartasElegidas(esZombi ? pantalla.mChosenSeeds : pantalla.mChosenZombies);
         var rival = CartasConocidasDelRival(elegidasRival);
+
+        // Conjunto del usuario: va antes que todo lo demás; los espacios que sobren se llenan como siempre.
+        // Recapitulación en cada turno (pedido del usuario): qué lleva, cuántos espacios quedan, qué eligió
+        // el rival y qué busca; si una carta de la lista no se puede tomar, se anota por qué.
+        if (!esZombi && libres > 0)
+        {
+            // Mientras más bajo el nivel, más seguido se le pasa responder al mazo del rival.
+            var respondeAlRival = Azar.NextDouble() < Inteligencia;
+            // Solo lo que el rival eligió en esta partida: con el mazo recordado de la anterior llevaba
+            // respuestas (por ejemplo el Cactus) que no hacían falta.
+            var conjunto = ConjuntoPreferido(z => respondeAlRival && elegidasRival.Contains(z));
+            VersusBotMod.Detalle("Bot J" + (_indice + 1) + " recapitula: lleva [" + string.Join(", ", propias) + "], quedan " + libres
+                + " espacios, el rival eligió [" + string.Join(", ", elegidasRival) + "], busca [" + string.Join(", ", conjunto) + "]");
+            foreach (var tipo in conjunto)
+            {
+                if (propias.Contains(tipo))
+                {
+                    continue;
+                }
+                var carta = CartaAlAzar(pantalla, lista, t => t == tipo);
+                if (carta != null)
+                {
+                    VersusBotMod.Log.Msg("Bot J" + (_indice + 1) + " toma del conjunto preferido: " + tipo);
+                    return carta;
+                }
+                VersusBotMod.Detalle("Bot J" + (_indice + 1) + " no puede tomar " + tipo + ": " + MotivoNoDisponible(pantalla, lista, tipo));
+            }
+        }
 
         if (!esZombi)
         {
@@ -695,8 +796,10 @@ internal sealed class Bot
             }
             if (!tablero.CanTakeSunMoney(carta.GetCost(), _indice))
             {
-                // Lo mejor que aún no se puede pagar: en nivel alto se ahorra para ello.
-                if (!esZombi && VersusBotMod.Nivel >= NivelAnticipa)
+                // Lo mejor que aún no se puede pagar: en nivel alto se ahorra para ello. Para un atacante
+                // (repetidora, guisante de hielo...) se ahorra en cualquier nivel: en nivel 50 el bot gastaba
+                // todo en cartas baratas y casi nunca llegaba a plantar guisantes.
+                if (!esZombi && (VersusBotMod.Nivel >= NivelAnticipa || Cartas.EsAtaqueIndependiente(carta.mPacketType)))
                 {
                     var soñada = Estrategia.MejorCasilla(tablero, carta.mPacketType, esZombi, EconomiaDeseada(esZombi));
                     if (soñada != null && soñada.Valor > mejorSinPagar)
@@ -755,7 +858,7 @@ internal sealed class Bot
     // Primero la economía; después cualquier otra carta disponible, al azar.
     private SeedPacket ElegirCarta(Board tablero, SeedBank banco, bool esZombi)
     {
-        var economia = esZombi ? SeedType.ZombieGravestone : SeedType.Sunflower;
+        var economia = esZombi ? SeedType.ZombieGravestone : CartaFija.Actual;
         var faltaEconomia = esZombi ? Estrategia.Tumbas < EconomiaDeseada(true) : tablero.CountSunFlowers() < EconomiaDeseada(false);
         SeedPacket elegida = null;
         var disponibles = 0;
@@ -828,7 +931,7 @@ internal sealed class Bot
     // El girasol da soles en cualquier línea. Una línea caída y vacía no recibe nada.
     private static int ElegirFilaAlAzar(SeedType tipo, bool esZombi, int intento)
     {
-        if (!MapaVersus.Piscina || tipo == SeedType.Sunflower)
+        if (!MapaVersus.Piscina || tipo == SeedType.Sunflower || tipo == SeedType.Sunshroom)
         {
             return Azar.Next(Filas);
         }
@@ -866,6 +969,6 @@ internal sealed class Bot
         {
             return Columnas - 1 - Azar.Next(Columnas / 2);
         }
-        return tipo == SeedType.Sunflower ? Azar.Next(2) : Azar.Next(Columnas - 1);
+        return tipo == SeedType.Sunflower || tipo == SeedType.Sunshroom ? Azar.Next(2) : Azar.Next(Columnas - 1);
     }
 }

@@ -1,6 +1,6 @@
 # Versus Bot
 
-A [MelonLoader](https://melonwiki.xyz) mod for **Plants vs. Zombies: Replanted** that adds a bot opponent to Versus mode, plus a new Pool map.
+A [MelonLoader](https://melonwiki.xyz) mod for **Plants vs. Zombies: Replanted** that adds a bot opponent to Versus mode, plus Pool, Night garden and Night pool maps.
 
 *Versión en español más abajo.*
 
@@ -8,9 +8,11 @@ A [MelonLoader](https://melonwiki.xyz) mod for **Plants vs. Zombies: Replanted**
 
 - **Three modes** on the Versus screen: Player vs Bot, Player vs Player and Bot vs Bot. Double-click the mode button to change mode; a single click opens the bot difficulty (Player vs Bot and Bot vs Bot only).
 - **Keyboard and mouse, plus a gamepad:** Player vs Bot needs no gamepad, and in Player vs Player one player uses keyboard and mouse and the other a gamepad.
-- **Bot difficulty from 1 to 200**, with a slider in the game. The bot can play plants or zombies.
-- **Pool map:** 6 rows, water in rows 3 and 4, and 7 cards.
-- **Regular Versus map** still available (Garden button): 5 rows and 6 cards.
+- **Bot difficulty from 1 to 200**, with a slider in the game. The bot can play plants or zombies. Lower levels play slower and make more mistakes; as plants, the bot gets 0.5 % more sun per level (twice the sun at 200) and part of the price of Coffee Bean, Repeater and Snow Pea back. It answers the zombie cards you pick (Cactus for Balloon, Squash for Zomboni, Split Pea for Digger, Potato Mine for Buckethead and Football).
+- **Four maps**, chosen with the buttons next to Menu: Garden (the regular Versus map, 5 rows and 6 cards), Night garden, Pool and Night pool (6 rows, water in rows 3 and 4, and 7 cards). The chosen map is remembered.
+- **Night rules:** no fog, mushrooms are awake, the plants' fixed card is the Sun-shroom instead of the Sunflower (the two starting Sunflowers are Sun-shrooms too), no random graves at the start, and zombie graves produce brains twice as fast. Sun and brains fall from the sky as often as by day.
+- **Sun-shroom** grows in 30 seconds on every Versus map (120 in the original game).
+- **Fairer card choice:** zombies pick their last two cards in a row and plants pick last, so a zombie can no longer save a card the plants can't answer.
 - **New zombie cards:** Balloon, Dolphin Rider and Snorkel, built from what the game already ships.
 - **x1/x2 speed button** during Bot vs Bot matches.
 - **Optional auto-collect** for sun, coins and presents, in the game options.
@@ -56,13 +58,15 @@ dotnet build -c Release -p:GameDir="C:\Program Files (x86)\Steam\steamapps\commo
 
 ## Español
 
-Mod de MelonLoader para **Plants vs. Zombies: Replanted** que añade un bot rival al modo Versus, además de un nuevo mapa Piscina.
+Mod de MelonLoader para **Plants vs. Zombies: Replanted** que añade un bot rival al modo Versus, además de los mapas Piscina, Jardín de noche y Piscina de noche.
 
 - **Tres modos** en la pantalla de Versus: Jugador vs Bot, Jugador vs Jugador y Bot vs Bot. Haz doble clic en el botón del modo para cambiarlo; un solo clic abre la dificultad del bot (solo en Jugador vs Bot y Bot vs Bot).
 - **Teclado y ratón, más mando:** Jugador vs Bot no necesita mando, y en Jugador vs Jugador una persona usa teclado y ratón y la otra un mando.
-- **Dificultad del bot de 1 a 200**, con un control en el juego. El bot puede jugar con plantas o con zombis.
-- **Mapa Piscina:** 6 líneas, agua en las líneas 3 y 4, y 7 cartas.
-- **Mapa normal de Versus** sigue disponible (botón Jardín): 5 líneas y 6 cartas.
+- **Dificultad del bot de 1 a 200**, con un control en el juego. El bot puede jugar con plantas o con zombis. En los niveles bajos juega más lento y se equivoca más; con plantas recibe un 0,5 % más de sol por nivel (el doble en el 200) y recupera parte del precio del Grano de café, la Repetidora y el Guisante de hielo. Responde a las cartas zombi que eliges (Cactus contra el Globo, Calabaza aplastadora contra el Zomboni, Guisante partido contra el minero, Papapum contra el balde y el fútbol americano).
+- **Cuatro mapas**, con los botones junto a Menú: Jardín (el mapa normal de Versus, 5 líneas y 6 cartas), Jardín de noche, Piscina y Piscina de noche (6 líneas, agua en las líneas 3 y 4, y 7 cartas). El mapa elegido se recuerda.
+- **Reglas de noche:** sin niebla, setas despiertas, la carta fija de las plantas es la Seta solar en vez del Girasol (los dos Girasoles del inicio también son Setas solares), sin tumbas al azar al empezar y las tumbas de los zombis producen cerebros el doble de rápido. Sol y cerebros caen del cielo igual que de día.
+- **Seta solar:** crece a los 30 segundos en todos los mapas de Versus (120 en el juego original).
+- **Elección de cartas más pareja:** los zombis eligen sus dos últimas cartas seguidas y las plantas eligen al final, así un zombi ya no puede guardarse una carta que las plantas no alcancen a responder.
 - **Cartas nuevas de zombi:** Globo, Delfín y Buzo.
 - **Botón de velocidad x1/x2** en partidas Bot vs Bot.
 - **Recogida automática opcional** de soles, monedas y regalos, en las opciones del juego.

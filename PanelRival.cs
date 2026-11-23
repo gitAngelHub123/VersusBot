@@ -47,10 +47,32 @@ internal static class PanelRival
     private static float _siguienteBusqueda;
     private static Iluminado _iluminadoFila;
     private static Iluminado _iluminadoFlotante;
-    private static RectTransform _botonMapa;
+    // Cuatro botones de mapa a la izquierda del de Menú, de izquierda a derecha:
+    // Jardín, Jardín de noche, Piscina, Piscina de noche.
+    private struct BotonDeMapa
+    {
+        internal bool Piscina;
+        internal bool Noche;
+        internal RectTransform Rect;
+        internal Iluminado Iluminado;
+        internal Color ColorTexto;
+    }
+
+    private static readonly BotonDeMapa[] _botonesMapa =
+    {
+        new BotonDeMapa { Piscina = false, Noche = false },
+        new BotonDeMapa { Piscina = false, Noche = true },
+        new BotonDeMapa { Piscina = true, Noche = false },
+        new BotonDeMapa { Piscina = true, Noche = true },
+    };
+    // El mapa elegido se marca con este color en el texto.
+    private static readonly Color ColorMapaElegido = new Color(1f, 0.85f, 0.2f, 1f);
+    private static bool _botonesMapaCreados;
     private static RectTransform _botonMenu;
-    private static Iluminado _iluminadoMapa;
     private static float _siguienteCambioDeMapa;
+
+    private static string EtiquetaMapa(BotonDeMapa b) => b.Piscina ? (b.Noche ? Textos.PiscinaDeNoche : Textos.Piscina)
+        : b.Noche ? Textos.JardinDeNoche : Textos.Jardin;
 
     internal static void Actualizar(bool visible)
     {
@@ -119,13 +141,15 @@ internal static class PanelRival
         }
     }
 
-    // El botón de mapa es una copia del de Menú, a su izquierda. Se llama como el mapa al que cambia.
+    // Los botones de mapa son copias del de Menú, a su izquierda, uno por mapa.
     private static void AsegurarBotonMapa()
     {
-        if (_botonMapa != null)
+        if (_botonesMapaCreados && BotonesMapaVivos())
         {
             return;
         }
+        // Al salir al menú el juego destruye la pantalla y los botones con ella: se vuelven a crear.
+        _botonesMapaCreados = false;
         // Se espera al Menú visible: copiar el del contenedor oculto no mostraría nada.
         var menu = BuscarBotonMenu();
         if (menu == null || EstaEnContenedorOculto(menu.GetComponent<RectTransform>()))
@@ -133,14 +157,42 @@ internal static class PanelRival
             return;
         }
         _botonMenu = menu.GetComponent<RectTransform>();
-        var copia = Object.Instantiate(menu, menu.transform.parent);
-        copia.name = NombreBotonMapa;
-        _botonMapa = copia.GetComponent<RectTransform>();
-        _iluminadoMapa = new Iluminado(copia);
-        Limpiar(copia, _iluminadoMapa.AnimadorUsado);
-        copia.AddComponent<LayoutElement>().ignoreLayout = true;
-        copia.SetActive(true);
-        VersusBotMod.Detalle("Botón de mapa junto a '" + menu.name + "' en '" + menu.transform.parent.name + "', medida " + _botonMenu.rect.size + ", posición " + _botonMenu.anchoredPosition);
+        for (var i = 0; i < _botonesMapa.Length; i++)
+        {
+            var copia = Object.Instantiate(menu, menu.transform.parent);
+            copia.name = NombreBotonMapa + i;
+            _botonesMapa[i].Rect = copia.GetComponent<RectTransform>();
+            _botonesMapa[i].Iluminado = new Iluminado(copia);
+            Limpiar(copia, _botonesMapa[i].Iluminado.AnimadorUsado);
+            copia.AddComponent<LayoutElement>().ignoreLayout = true;
+            // Los nombres largos («Piscina de noche») se achican para caber en el botón.
+            foreach (var texto in copia.GetComponentsInChildren<TMP_Text>(true))
+            {
+                _botonesMapa[i].ColorTexto = texto.color;
+                texto.enableAutoSizing = true;
+                texto.fontSizeMin = 10f;
+                texto.fontSizeMax = texto.fontSize;
+            }
+            copia.SetActive(true);
+        }
+        _botonesMapaCreados = true;
+        VersusBotMod.Detalle("Botones de mapa junto a '" + menu.name + "' en '" + menu.transform.parent.name + "', medida " + _botonMenu.rect.size + ", posición " + _botonMenu.anchoredPosition);
+    }
+
+    private static bool BotonesMapaVivos()
+    {
+        if (_botonMenu == null)
+        {
+            return false;
+        }
+        for (var i = 0; i < _botonesMapa.Length; i++)
+        {
+            if (_botonesMapa[i].Rect == null)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     // La primera vez, el juego tiene otro botón Menú en un contenedor que no se muestra.
@@ -186,24 +238,39 @@ internal static class PanelRival
 
     private static void ActualizarBotonMapa(bool permitido)
     {
-        if (_botonMapa == null || _botonMenu == null)
+        if (!_botonesMapaCreados || _botonMenu == null)
         {
             return;
         }
-        _botonMapa.anchorMin = _botonMenu.anchorMin;
-        _botonMapa.anchorMax = _botonMenu.anchorMax;
-        _botonMapa.pivot = _botonMenu.pivot;
-        _botonMapa.sizeDelta = _botonMenu.sizeDelta;
-        _botonMapa.anchoredPosition = _botonMenu.anchoredPosition - new Vector2(_botonMenu.rect.width + SeparacionBotonMapa, 0);
-        PonerTexto(_botonMapa, MapaVersus.EtiquetaBoton);
-        _iluminadoMapa?.Actualizar(permitido);
         var raton = Mouse.current;
-        if (permitido && raton != null && raton.leftButton.wasPressedThisFrame && Time.unscaledTime >= _siguienteCambioDeMapa
-            && _botonMapa.gameObject.activeInHierarchy
-            && RectTransformUtility.RectangleContainsScreenPoint(_botonMapa, raton.position.ReadValue(), CamaraDe(_botonMapa)))
+        var clic = permitido && raton != null && raton.leftButton.wasPressedThisFrame && Time.unscaledTime >= _siguienteCambioDeMapa;
+        var paso = _botonMenu.rect.width + SeparacionBotonMapa;
+        for (var i = 0; i < _botonesMapa.Length; i++)
         {
-            _siguienteCambioDeMapa = Time.unscaledTime + EsperaEntreCambiosDeMapa;
-            MapaVersus.Cambiar();
+            var b = _botonesMapa[i];
+            if (b.Rect == null)
+            {
+                continue;
+            }
+            b.Rect.anchorMin = _botonMenu.anchorMin;
+            b.Rect.anchorMax = _botonMenu.anchorMax;
+            b.Rect.pivot = _botonMenu.pivot;
+            b.Rect.sizeDelta = _botonMenu.sizeDelta;
+            // El último (Piscina de noche) queda pegado al Menú; los demás, más a la izquierda.
+            b.Rect.anchoredPosition = _botonMenu.anchoredPosition - new Vector2(paso * (_botonesMapa.Length - i), 0);
+            PonerTexto(b.Rect, EtiquetaMapa(b));
+            var elegido = MapaVersus.EsElMapa(b.Piscina, b.Noche);
+            foreach (var texto in b.Rect.GetComponentsInChildren<TMP_Text>(true))
+            {
+                texto.color = elegido ? ColorMapaElegido : b.ColorTexto;
+            }
+            b.Iluminado?.Actualizar(permitido);
+            if (clic && !elegido && b.Rect.gameObject.activeInHierarchy
+                && RectTransformUtility.RectangleContainsScreenPoint(b.Rect, raton.position.ReadValue(), CamaraDe(b.Rect)))
+            {
+                _siguienteCambioDeMapa = Time.unscaledTime + EsperaEntreCambiosDeMapa;
+                MapaVersus.Elegir(b.Piscina, b.Noche);
+            }
         }
     }
 
@@ -255,7 +322,7 @@ internal static class PanelRival
             PonerTexto(_botonFila, EtiquetaModo());
         }
         // Se revisa en cada cuadro mientras se ve la fila, y se deja en su lugar antes de dibujarlo.
-        if (_botonTodo != null && _botonTodo.activeInHierarchy && _botonMapa == null)
+        if (_botonTodo != null && _botonTodo.activeInHierarchy && !_botonesMapaCreados)
         {
             AsegurarBotonMapa();
             ActualizarBotonMapa(false);

@@ -36,6 +36,15 @@ internal static class Estrategia
     private const float ValorEconomiaBajoPresion = 50f;
     private const float ValorOfensiva = 130f;
     private const float ValorRelleno = 40f;
+    // De noche el bot quiere esta cantidad más de setas solares que de girasoles de día (pedido del usuario).
+    private const int SetasSolaresExtra = 2;
+    // Extra para defender una fila con plantas de sol (prioridad 2, por debajo del peligro de la fila).
+    private const float BonoDefenderSoles = 100f;
+    // La seta gratis no pasa de esta columna: más adelante queda en la zona de los zombis.
+    private const int ColumnaSetaGratisMaxima = 5;
+    // Sin peligro va más atrás: columna 5 en pantalla (índice 4).
+    private const int ColumnaSetaGratisSinPeligro = 4;
+    private static readonly Random AzarSeta = new Random();
     private const float ValorDesconocida = 20f;
     private const float ValorCafe = 350f;
     private const float ValorIman = 300f;
@@ -62,6 +71,7 @@ internal static class Estrategia
     private static readonly HashSet<IntPtr> ZombisContados = new HashSet<IntPtr>();
     private static IntPtr _tableroLeido;
     private static bool _globoListo;
+
     private static bool _plantaParaNenufar;
     private static bool _otroAtacante;
     private const int GirasolesPrioritarios = 4;
@@ -168,7 +178,8 @@ internal static class Estrategia
             Array.Clear(HistorialPorFila, 0, HistorialPorFila.Length);
             ZombisContados.Clear();
         }
-        _esDeNoche = tablero.StageIsNight();
+        // En los mapas de noche del mod el fondo puede leerse como de día (piscina): manda el mapa elegido.
+        _esDeNoche = tablero.StageIsNight() || ReglasDeNoche.Activas(tablero);
         Vivos.Clear();
         Muertos.Clear();
         Array.Clear(TumbasPorFila, 0, TumbasPorFila.Length);
@@ -589,6 +600,9 @@ internal static class Estrategia
         if (tipo == SeedType.Cherrybomb) return Explotar(tablero, tipo);
         if (tipo == SeedType.Gravebuster) return RomperTumba(tablero, tipo);
         if (tipo == SeedType.Sunflower) return PonerGirasol(tablero, tipo, girasolesDeseados);
+        // De noche la economía es la seta solar, y el bot quiere más que de día para poder defender.
+        if (tipo == SeedType.Sunshroom) return PonerGirasol(tablero, tipo, girasolesDeseados + (_esDeNoche ? SetasSolaresExtra : 0));
+        if (tipo == SeedType.Puffshroom) return PonerSetaGratis(tablero, tipo);
         if (tipo == SeedType.Twinsunflower) return PonerGirasolDoble(tablero, tipo);
         if (tipo == SeedType.Torchwood) return PonerAntorcha(tablero, tipo);
         if (tipo == SeedType.Pumpkinshell) return PonerCalabaza(tablero, tipo);
@@ -797,9 +811,113 @@ internal static class Estrategia
         return mejor;
     }
 
+    private static bool EsEconomia(SeedType t) => t == SeedType.Sunflower || t == SeedType.Twinsunflower || t == SeedType.Sunshroom;
+
+    // Filas que todavía no tienen ninguna planta de sol, en orden.
+    private static List<int> FilasSinEconomia(Board tablero)
+    {
+        var filas = new List<int>();
+        for (var fila = 0; fila < Filas; fila++)
+        {
+            if (!FilaSinInteres(fila) && ContarEnFila(tablero, fila, EsEconomia) == 0)
+            {
+                filas.Add(fila);
+            }
+        }
+        return filas;
+    }
+
+    // Plantas que dan sol: girasol, girasol gemelo y seta solar.
+    private static int ContarEconomia(Board tablero)
+    {
+        var total = 0;
+        for (var fila = 0; fila < Filas; fila++)
+        {
+            total += ContarEnFila(tablero, fila, t => t == SeedType.Sunflower || t == SeedType.Twinsunflower || t == SeedType.Sunshroom);
+        }
+        return total;
+    }
+
+    // La seta gratis va siempre: a la fila con más peligro de caer, cerca del zombi; sin peligro, a cualquier
+    // fila con espacio, también a las de agua si ya tienen nenúfar.
+    private static Casilla PonerSetaGratis(Board tablero, SeedType tipo)
+    {
+        var mejorFila = -1;
+        var mayor = 0f;
+        for (var fila = 0; fila < Filas; fila++)
+        {
+            var peligro = DeficitPonderado(fila);
+            // A igual peligro, primero la fila con plantas de sol.
+            if (peligro > 0f && ContarEnFila(tablero, fila, EsEconomia) > 0)
+            {
+                peligro += BonoDefenderSoles;
+            }
+            if (peligro > mayor && !FilaSinInteres(fila))
+            {
+                mayor = peligro;
+                mejorFila = fila;
+            }
+        }
+        if (mejorFila >= 0)
+        {
+            // Lo más adelante posible sin pasar al zombi más cercano de esa fila (su alcance es corto).
+            var tope = ColumnaSetaGratisMaxima;
+            foreach (var zombi in Vivos)
+            {
+                if (zombi.mRow == mejorFila && !zombi.mMindControlled)
+                {
+                    tope = Math.Min(tope, ColumnaDe(tablero, zombi) - 1);
+                }
+            }
+            for (var columna = Math.Max(0, tope); columna >= 0; columna--)
+            {
+                if (tablero.CanPlantAt(columna, mejorFila, tipo) == PlantingReason.Ok)
+                {
+                    return new Casilla { Columna = columna, Fila = mejorFila, Valor = ValorInstantanea, Motivo = "seta gratis en la fila con más peligro" + DescribirFila(mejorFila) };
+                }
+            }
+        }
+        // Sin peligro: cualquier fila con espacio, empezando por una al azar para repartirlas.
+        // Más atrás que en peligro: pegada a la línea roja se la comen apenas entra un zombi.
+        var inicio = AzarSeta.Next(Filas);
+        for (var i = 0; i < Filas; i++)
+        {
+            var fila = (inicio + i) % Filas;
+            if (FilaSinInteres(fila))
+            {
+                continue;
+            }
+            for (var columna = ColumnaSetaGratisSinPeligro; columna >= 0; columna--)
+            {
+                if (tablero.CanPlantAt(columna, fila, tipo) == PlantingReason.Ok)
+                {
+                    return new Casilla { Columna = columna, Fila = fila, Valor = ValorRelleno, Motivo = "seta gratis" + DescribirFila(fila) };
+                }
+            }
+        }
+        return null;
+    }
+
     private static Casilla PonerGirasol(Board tablero, SeedType tipo, int deseados)
     {
-        var girasoles = tablero.CountSunFlowers();
+        var girasoles = ContarEconomia(tablero);
+        // Mínimo en todos los mapas (pedido del usuario): una planta de sol en cada fila; más, lo decide el bot.
+        var filasSinSol = FilasSinEconomia(tablero);
+        if (filasSinSol.Count > 0)
+        {
+            var valorMinimo = HayZombiMuyCerca(tablero) ? ValorEconomiaBajoPresion : ValorEconomiaPrioritaria;
+            foreach (var fila in filasSinSol)
+            {
+                for (var columna = 0; columna < 2; columna++)
+                {
+                    // En las filas de agua solo si ya hay un nenúfar libre (CanPlantAt lo permite).
+                    if (!FilaAmenazada(tablero, fila) && tablero.CanPlantAt(columna, fila, tipo) == PlantingReason.Ok)
+                    {
+                        return new Casilla { Columna = columna, Fila = fila, Valor = valorMinimo, Motivo = "economía: una por fila" };
+                    }
+                }
+            }
+        }
         if (girasoles >= deseados)
         {
             return null;
@@ -808,9 +926,15 @@ internal static class Estrategia
         var valor = girasoles < PrimerosGirasoles && !urgencia ? ValorPrimerosGirasoles
             : urgencia ? ValorEconomiaBajoPresion
             : girasoles < EconomiaBase ? ValorEconomiaBase : ValorEconomia;
+        // De noche la seta solar es barata y es todo el sol que hay: va con prioridad hasta tener las deseadas,
+        // aunque falte defensa (con la regla de abajo el bot se quedaba en 0 soles). Solo cede si hay un zombi muy cerca.
+        if (tipo == SeedType.Sunshroom && _esDeNoche)
+        {
+            valor = HayZombiMuyCerca(tablero) ? ValorEconomiaBajoPresion : ValorEconomiaPrioritaria;
+        }
         // Desde el nivel 51 la economía básica no se abandona por un zombi lejano: sin soles no hay defensa.
         // Pasada esa base vuelve a competir con la defensa: 7 girasoles seguidos pierden la partida.
-        if (VersusBotMod.Nivel >= NivelEconomiaPrioritaria)
+        else if (VersusBotMod.Nivel >= NivelEconomiaPrioritaria)
         {
             if (girasoles < (Maestro ? GirasolesPrioritarios : PrimerosGirasoles) ? !HayZombiMuyCerca(tablero) : girasoles < GirasolesPrioritarios && !urgencia)
             {
@@ -939,6 +1063,13 @@ internal static class Estrategia
                 var cerca = ZombiMasCercano(tablero, fila) <= ColumnaDefensaCercana;
                 valor = ValorFilaSinDefensa + DeficitPonderado(fila) * (cerca ? 1f : FraccionDeficitLejano) + DanoDe(tipo);
                 motivo = "defender: faltan " + (int)DeficitPorFila[fila] + " de daño";
+                // Prioridad 2 (pedido del usuario): proteger las plantas de sol. Menor que la diferencia
+                // normal de peligro, así la fila que más peligra (prioridad 1) sigue primero.
+                if (ContarEnFila(tablero, fila, EsEconomia) > 0)
+                {
+                    valor += BonoDefenderSoles;
+                    motivo += ", protege plantas de sol";
+                }
             }
             else if (ObjetivoPorFila[fila])
             {

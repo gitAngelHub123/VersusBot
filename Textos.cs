@@ -44,6 +44,8 @@ internal static class Textos
     internal static string BotVsBot => "Bot vs Bot";
     internal static string Batallas => Espanol ? "Batallas Personalizadas" : "Custom Battles";
     internal static string Piscina => Espanol ? "Piscina" : "Pool";
+    internal static string JardinDeNoche => Espanol ? "Jardín de noche" : "Night garden";
+    internal static string PiscinaDeNoche => Espanol ? "Piscina de noche" : "Night pool";
     internal static string Jardin => Espanol ? "Jardín" : "Garden";
     internal static string TituloDificultad => Espanol ? "Dificultad del bot" : "Bot difficulty";
     internal static string Volver => Espanol ? "Volver" : "Back";
