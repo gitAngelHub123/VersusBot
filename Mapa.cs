@@ -1638,6 +1638,8 @@ internal static class ParcheRangoDeCartas
     {
         CodigoDeCartas.PrepararSalidaDeZombis(MapaVersus.EsVersus(__instance.mApp));
         CodigoDeCartas.Ajustar(MapaVersus.Piscina && MapaVersus.EsVersus(__instance.mApp));
+        // Carta fija de las plantas según el mapa (Seta solar de noche, Girasol de día).
+        CartaFija.Ajustar(__instance.mApp?.SeedChooserScreen);
     }
 
     private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);

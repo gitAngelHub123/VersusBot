@@ -34,6 +34,7 @@ internal static class CartaFija
         var quitar = MapaVersus.Noche ? SeedType.Sunflower : SeedType.Sunshroom;
         var poner = MapaVersus.Noche ? SeedType.Sunshroom : SeedType.Sunflower;
         var vieja = selector.GetChosenSeedFromType(quitar);
+        AnotarUnaVez(quitar, vieja);
         if (vieja == null || vieja.mSeedState != ChosenSeedState.SeedInBank || !vieja.mCrazyDavePicked)
         {
             return;
@@ -86,17 +87,21 @@ internal static class CartaFija
         paquetes[indice].SetPacketType(poner, SeedType.None);
         VersusBotMod.Log.Msg("Carta fija de las plantas: " + quitar + " → " + poner + " (espacio " + (indice + 1) + ")");
     }
-}
 
-[HarmonyPatch(typeof(SeedChooserScreen), nameof(SeedChooserScreen.Update))]
-internal static class ParcheCartaFija
-{
-    private static void Postfix(SeedChooserScreen __instance)
+    // DIAGNÓSTICO (temporal): cómo ve el mod la carta a quitar, una vez por mapa.
+    private static SeedType _anotada = SeedType.None;
+
+    private static void AnotarUnaVez(SeedType carta, ChosenSeed elegida)
     {
-        CartaFija.Ajustar(__instance);
+        if (_anotada == carta)
+        {
+            return;
+        }
+        _anotada = carta;
+        VersusBotMod.Log.Msg("Carta fija, revisando " + carta + ": "
+            + (elegida == null ? "no encontrada"
+                : "estado=" + elegida.mSeedState + " fija=" + elegida.mCrazyDavePicked + " jugador=" + elegida.mPlayerIndex + " espacio=" + elegida.mSeedIndexInBank));
     }
-
-    private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
 }
 
 // Sin niebla en la piscina de noche.
