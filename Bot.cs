@@ -246,8 +246,9 @@ internal sealed class Bot
     // 1. Seta desesporada (gratis), siempre de noche.
     // 2. Respuestas al rival: globo → Cactus; Zomboni → Calabaza aplastadora; minero → Guisante partido;
     //    balde o fútbol americano → Papapum (pedido del usuario: sirve mejor que la Hipnoseta).
-    // 3. Seta miedica; Grano de café solo de día; Zampalga en la piscina; Papapum de día o Humoseta de noche;
-    //    Nuez si sobra espacio.
+    // 3. Noche: Seta miedica, Zampalga en la piscina, Humoseta, Nuez si sobra espacio.
+    //    Día (rehecho 2026-11-23: el bot juntaba sol sin gastarlo): Repetidora y Guisante de hielo
+    //    (con la mitad devuelta, ver Ventaja.cs), Zampalga en la piscina, Papapum, Nuez.
     private static List<SeedType> ConjuntoPreferido(Func<SeedType, bool> rivalLleva)
     {
         var noche = MapaVersus.Noche;
@@ -272,18 +273,21 @@ internal sealed class Bot
         {
             conjunto.Add(SeedType.Potatomine);
         }
-        conjunto.Add(SeedType.Scaredyshroom);
-        if (!noche)
+        if (noche)
         {
-            conjunto.Add(SeedType.InstantCoffee);
+            conjunto.Add(SeedType.Scaredyshroom);
+        }
+        else
+        {
+            conjunto.Add(SeedType.Repeater);
+            conjunto.Add(SeedType.Snowpea);
         }
         if (MapaVersus.Piscina)
         {
             conjunto.Add(SeedType.Tanglekelp);
         }
         conjunto.Add(noche ? SeedType.Fumeshroom : SeedType.Potatomine);
-        // Espacio que sobre (lo decide el bot, a pedido del usuario): la nuez protege a la seta miedica,
-        // que se esconde cuando un zombi se le acerca. En las piscinas el mazo ya va lleno.
+        // Espacio que sobre (lo decide el bot): la nuez frena a los zombis delante de los atacantes.
         conjunto.Add(SeedType.Wallnut);
         return conjunto;
     }

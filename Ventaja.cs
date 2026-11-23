@@ -49,14 +49,25 @@ internal static class ParcheVentajaDeSol
 // de piscina de día el bot plantó 25 cafés y pasó casi la mitad de la partida sin soles. Para que el día
 // sea tan parejo como la noche (donde no hace falta café), al bot de plantas se le devuelve el café
 // según el nivel: todo en el 200, nada en el 100.
+// Mazo de día rehecho (2026-11-23, pedido del usuario): a la Repetidora y al Guisante de hielo se les
+// devuelve la mitad del precio, también escalado por nivel (la mitad en el 200, nada en el 100).
 [HarmonyPatch(typeof(Plant), nameof(Plant.PlantInitialize))]
 internal static class ParcheCafeDelBot
 {
+    // Parte del precio que se devuelve en el nivel máximo.
+    private static float Devolucion(SeedType tipo) => tipo switch
+    {
+        SeedType.InstantCoffee => 1f,
+        SeedType.Repeater => 0.5f,
+        SeedType.Snowpea => 0.5f,
+        _ => 0f,
+    };
+
     private static void Postfix(Plant __instance)
     {
         var tablero = __instance.mBoard;
-        if (__instance.mSeedType != SeedType.InstantCoffee || tablero?.mApp == null || !tablero.mApp.IsVersusMode()
-            || VersusBotMod.Nivel <= 100)
+        var parte = Devolucion(__instance.mSeedType);
+        if (parte <= 0f || tablero?.mApp == null || !tablero.mApp.IsVersusMode() || VersusBotMod.Nivel <= 100)
         {
             return;
         }
@@ -65,7 +76,7 @@ internal static class ParcheCafeDelBot
         {
             return;
         }
-        var devolucion = Mathf.RoundToInt(Plant.GetCost(tablero.mApp, SeedType.InstantCoffee, SeedType.None) * ParcheVentajaDeSol.FraccionSegunNivel);
+        var devolucion = Mathf.RoundToInt(Plant.GetCost(tablero.mApp, __instance.mSeedType, SeedType.None) * parte * ParcheVentajaDeSol.FraccionSegunNivel);
         if (devolucion <= 0)
         {
             return;
