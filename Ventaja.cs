@@ -15,22 +15,20 @@ internal static class ParcheVentajaDeSol
     // 2 = el doble de sol (+100 %, pedido del usuario). Ajustable si la partida queda despareja.
     internal const float FactorSolDelBot = 2f;
 
-    // Desde el nivel 100 sin ventaja; cada 25 niveles más, un 25 % más de sol (200 = el doble).
-    private const int NivelSinVentaja = 100;
-
-    internal static float FactorSegunNivel =>
-        1f + (FactorSolDelBot - 1f) * UnityEngine.Mathf.Clamp01((VersusBotMod.Nivel - NivelSinVentaja) / (float)(Bot.NivelMaestro - NivelSinVentaja));
-
-    // Fracción de la ventaja según el nivel: 0 en el 100, 1 en el 200.
+    // La ventaja crece pareja en todos los niveles (pedido del usuario): 0,5 % por nivel.
+    // Sol extra: +100 % en el 200, +99,5 % en el 199... +0,5 % en el 1.
+    // Fracción de la ventaja según el nivel: nivel / 200 (1 en el 200, 0,005 en el 1).
     internal static float FraccionSegunNivel =>
-        UnityEngine.Mathf.Clamp01((VersusBotMod.Nivel - NivelSinVentaja) / (float)(Bot.NivelMaestro - NivelSinVentaja));
+        UnityEngine.Mathf.Clamp01(VersusBotMod.Nivel / (float)Bot.NivelMaestro);
+
+    internal static float FactorSegunNivel => 1f + (FactorSolDelBot - 1f) * FraccionSegunNivel;
 
     // Para sumar sol sin pasar por la ventaja (la devolución del café ya viene calculada).
     internal static bool SinVentaja { get; set; }
 
     private static void Prefix(Board __instance, ref int theAmount, int playerIndex)
     {
-        if (SinVentaja || theAmount <= 0 || VersusBotMod.Nivel <= NivelSinVentaja || !VersusBotMod.JugadorEsBot(playerIndex))
+        if (SinVentaja || theAmount <= 0 || VersusBotMod.Nivel <= 0 || !VersusBotMod.JugadorEsBot(playerIndex))
         {
             return;
         }
@@ -48,9 +46,9 @@ internal static class ParcheVentajaDeSol
 // De día cada seta del bot necesita un Grano de café, y cada seta comida vuelve a pedirlo: en la prueba
 // de piscina de día el bot plantó 25 cafés y pasó casi la mitad de la partida sin soles. Para que el día
 // sea tan parejo como la noche (donde no hace falta café), al bot de plantas se le devuelve el café
-// según el nivel: todo en el 200, nada en el 100.
+// según el nivel: todo en el 200, bajando 0,5 % por nivel.
 // Mazo de día rehecho (2026-11-23, pedido del usuario): a la Repetidora y al Guisante de hielo se les
-// devuelve la mitad del precio, también escalado por nivel (la mitad en el 200, nada en el 100).
+// devuelve la mitad del precio, también escalado por nivel (la mitad en el 200, bajando parejo hasta el 1).
 [HarmonyPatch(typeof(Plant), nameof(Plant.PlantInitialize))]
 internal static class ParcheCafeDelBot
 {
@@ -67,7 +65,7 @@ internal static class ParcheCafeDelBot
     {
         var tablero = __instance.mBoard;
         var parte = Devolucion(__instance.mSeedType);
-        if (parte <= 0f || tablero?.mApp == null || !tablero.mApp.IsVersusMode() || VersusBotMod.Nivel <= 100)
+        if (parte <= 0f || tablero?.mApp == null || !tablero.mApp.IsVersusMode() || VersusBotMod.Nivel <= 0)
         {
             return;
         }
