@@ -247,7 +247,7 @@ internal sealed class Bot
     // que dependa de otra entra solo si queda espacio para las dos.
     private ChosenSeed ElegirCartaDeMazo(SeedChooserScreen pantalla, Il2CppSystem.Collections.Generic.List<ChosenSeed> lista, bool esZombi)
     {
-        var economia = esZombi ? SeedType.ZombieGravestone : SeedType.Sunflower;
+        var economia = esZombi ? SeedType.ZombieGravestone : CartaFija.Actual;
         var propias = new HashSet<SeedType>();
         for (var i = 0; i < lista.Count; i++)
         {
@@ -755,7 +755,7 @@ internal sealed class Bot
     // Primero la economía; después cualquier otra carta disponible, al azar.
     private SeedPacket ElegirCarta(Board tablero, SeedBank banco, bool esZombi)
     {
-        var economia = esZombi ? SeedType.ZombieGravestone : SeedType.Sunflower;
+        var economia = esZombi ? SeedType.ZombieGravestone : CartaFija.Actual;
         var faltaEconomia = esZombi ? Estrategia.Tumbas < EconomiaDeseada(true) : tablero.CountSunFlowers() < EconomiaDeseada(false);
         SeedPacket elegida = null;
         var disponibles = 0;
@@ -828,7 +828,7 @@ internal sealed class Bot
     // El girasol da soles en cualquier línea. Una línea caída y vacía no recibe nada.
     private static int ElegirFilaAlAzar(SeedType tipo, bool esZombi, int intento)
     {
-        if (!MapaVersus.Piscina || tipo == SeedType.Sunflower)
+        if (!MapaVersus.Piscina || tipo == SeedType.Sunflower || tipo == SeedType.Sunshroom)
         {
             return Azar.Next(Filas);
         }
@@ -866,6 +866,6 @@ internal sealed class Bot
         {
             return Columnas - 1 - Azar.Next(Columnas / 2);
         }
-        return tipo == SeedType.Sunflower ? Azar.Next(2) : Azar.Next(Columnas - 1);
+        return tipo == SeedType.Sunflower || tipo == SeedType.Sunshroom ? Azar.Next(2) : Azar.Next(Columnas - 1);
     }
 }

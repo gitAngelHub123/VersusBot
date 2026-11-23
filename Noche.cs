@@ -11,9 +11,9 @@ namespace VersusBot;
 
 internal static class ReglasDeNoche
 {
-    // De noche: los cerebros del cielo caen 1 de cada FactorCielo veces (el sol, igual que de día);
-    // las tumbas producen FactorTumbas veces más rápido.
-    internal const int FactorCielo = 2;
+    // De noche: los cerebros del cielo caen 1 de cada FactorCielo veces (el sol, igual que de día).
+    // 1 = igual que de día (pedido del usuario 2026-11-23). Las tumbas producen FactorTumbas veces más rápido.
+    internal const int FactorCielo = 1;
     internal const int FactorTumbas = 2;
 
     internal static bool Activas(Board tablero) =>
