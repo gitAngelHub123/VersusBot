@@ -40,6 +40,8 @@ internal static class Estrategia
     private const int SetasSolaresExtra = 2;
     // La seta gratis no pasa de esta columna: más adelante queda en la zona de los zombis.
     private const int ColumnaSetaGratisMaxima = 5;
+    // Sin peligro va más atrás: columna 5 en pantalla (índice 4).
+    private const int ColumnaSetaGratisSinPeligro = 4;
     private static readonly Random AzarSeta = new Random();
     private const float ValorDesconocida = 20f;
     private const float ValorCafe = 350f;
@@ -894,6 +896,7 @@ internal static class Estrategia
             }
         }
         // Sin peligro: cualquier fila con espacio, empezando por una al azar para repartirlas.
+        // Más atrás que en peligro: pegada a la línea roja se la comen apenas entra un zombi.
         var inicio = AzarSeta.Next(Filas);
         for (var i = 0; i < Filas; i++)
         {
@@ -902,7 +905,7 @@ internal static class Estrategia
             {
                 continue;
             }
-            for (var columna = ColumnaSetaGratisMaxima; columna >= 0; columna--)
+            for (var columna = ColumnaSetaGratisSinPeligro; columna >= 0; columna--)
             {
                 if (tablero.CanPlantAt(columna, fila, tipo) == PlantingReason.Ok)
                 {
@@ -924,9 +927,15 @@ internal static class Estrategia
         var valor = girasoles < PrimerosGirasoles && !urgencia ? ValorPrimerosGirasoles
             : urgencia ? ValorEconomiaBajoPresion
             : girasoles < EconomiaBase ? ValorEconomiaBase : ValorEconomia;
+        // De noche la seta solar es barata y es todo el sol que hay: va con prioridad hasta tener las deseadas,
+        // aunque falte defensa (con la regla de abajo el bot se quedaba en 0 soles). Solo cede si hay un zombi muy cerca.
+        if (tipo == SeedType.Sunshroom && _esDeNoche)
+        {
+            valor = HayZombiMuyCerca(tablero) ? ValorEconomiaBajoPresion : ValorEconomiaPrioritaria;
+        }
         // Desde el nivel 51 la economía básica no se abandona por un zombi lejano: sin soles no hay defensa.
         // Pasada esa base vuelve a competir con la defensa: 7 girasoles seguidos pierden la partida.
-        if (VersusBotMod.Nivel >= NivelEconomiaPrioritaria)
+        else if (VersusBotMod.Nivel >= NivelEconomiaPrioritaria)
         {
             if (girasoles < (Maestro ? GirasolesPrioritarios : PrimerosGirasoles) ? !HayZombiMuyCerca(tablero) : girasoles < GirasolesPrioritarios && !urgencia)
             {
