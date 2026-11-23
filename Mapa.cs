@@ -595,6 +595,8 @@ internal static class MapaVersus
     }
 
     // El juego pone el inicio en las líneas 2 y 4, y la 4 ahora es agua: pasa a la línea 5.
+    internal static bool EnInicio => Time.unscaledTime < _finDelInicio;
+
     internal static int FilaDeInicio(int fila)
     {
         return Piscina && fila == FilaInicialEnAgua && Time.unscaledTime < _finDelInicio ? FilaInicialEnPasto : fila;
@@ -1996,11 +1998,16 @@ internal static class ParcheNenufarRecomendado
 [HarmonyPatch(typeof(Board), nameof(Board.AddPlant))]
 internal static class ParchePlantaInicial
 {
-    private static void Prefix(ref int theGridY, SeedType theSeedType)
+    private static void Prefix(ref int theGridY, ref SeedType theSeedType)
     {
         if (theSeedType == SeedType.Sunflower)
         {
             theGridY = MapaVersus.FilaDeInicio(theGridY);
+            // En los mapas de noche, los 2 girasoles del inicio pasan a ser setas solares.
+            if (MapaVersus.Noche && MapaVersus.EnInicio)
+            {
+                theSeedType = SeedType.Sunshroom;
+            }
         }
     }
 }

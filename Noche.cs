@@ -99,6 +99,21 @@ internal static class ParcheCieloDeNoche
     }
 }
 
+// En los mapas de noche las setas siempre están despiertas: cualquier orden de dormir se anula.
+[HarmonyPatch(typeof(Plant), nameof(Plant.SetSleeping))]
+internal static class ParcheSetasDespiertas
+{
+    private static void Prefix(Plant __instance, ref bool theIsAsleep)
+    {
+        if (theIsAsleep && ReglasDeNoche.Activas(__instance.mBoard))
+        {
+            theIsAsleep = false;
+        }
+    }
+
+    private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
+}
+
 // Tumbas de los zombis: su contador baja de 1 en 1 cada ciclo; de noche baja de 2 en 2.
 [HarmonyPatch(typeof(Zombie), nameof(Zombie.UpdateGravestone))]
 internal static class ParcheTumbasDeNoche
