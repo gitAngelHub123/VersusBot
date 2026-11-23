@@ -1131,7 +1131,7 @@ internal static class MapaVersus
         if (buzo != null)
         {
             buzo.m_previewSpriteOffset += CorreccionSiluetaDelfin;
-            VersusBotMod.Log.Msg("Silueta del buzo: desplazamiento " + buzo.m_previewSpriteOffset + ", escala " + buzo.m_previewSpriteScale + " (delfín escala " + delfin.m_previewSpriteScale + ")");
+            VersusBotMod.Log.Msg("Silueta del buzo: desplazamiento " + buzo.m_previewSpriteOffset);
         }
     }
 
