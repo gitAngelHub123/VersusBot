@@ -441,7 +441,7 @@ internal static class MapaVersus
             return;
         }
         nuevo.mPosX = plantilla.mPosX;
-        VersusBotMod.Detalle("Sexto objetivo creado: fila " + nuevo.mRow + ", columna " + columna + ", vida " + nuevo.mBodyHealth + " (el de la fila 5 tiene " + plantilla.mBodyHealth + ")");
+        VersusBotMod.Detalle("Sexto objetivo creado: fila " + (nuevo.mRow + 1) + ", columna " + (columna + 1) + ", vida " + nuevo.mBodyHealth + " (el de la fila " + (plantilla.mRow + 1) + " tiene " + plantilla.mBodyHealth + ")");
     }
 
     // El juego hace nacer del agua a todo zombi que sube del suelo si el mapa tiene piscina.
@@ -538,14 +538,14 @@ internal static class MapaVersus
         }
         if (_reparados.Remove(zombi.Pointer))
         {
-            VersusBotMod.Detalle("Normal después de encender sus partes: fila " + zombi.mRow + " [" + estado + "]");
+            VersusBotMod.Detalle("Normal después de encender sus partes: fila " + (zombi.mRow + 1) + " [" + estado + "]");
         }
         if (hayParte || apagadas.Count == 0 || zombi.mZombieType != ZombieType.Normal)
         {
             return;
         }
         _reparados.Add(zombi.Pointer);
-        VersusBotMod.Detalle("Normal sin cuerpo: fila " + zombi.mRow + " x=" + zombi.mPosX + " fase=" + zombi.mZombiePhase + " agua=" + zombi.mInPool
+        VersusBotMod.Detalle("Normal sin cuerpo: fila " + (zombi.mRow + 1) + " x=" + zombi.mPosX + " fase=" + zombi.mZombiePhase + " agua=" + zombi.mInPool
             + " separador=" + controlador.m_materialEffectController?.m_enableRenderSeparator + " [" + estado + "]");
         foreach (var parte in apagadas)
         {
@@ -970,9 +970,34 @@ internal static class MapaVersus
         }
     }
 
+    // Carta que tiene en la mano el jugador que hace clic. Manda la del cursor del juego (es la que el juego
+    // usa para colocar); la guardada al activar la carta queda de respaldo. Con teclado o mando el número de
+    // jugador al activar la carta no siempre coincide con el del clic: así el delfín salía como Imp y el buzo
+    // como zombi normal (1.0.1).
+    private static SeedType CartaDelJugador(Board tablero, int jugador)
+    {
+        if (jugador < 0 || jugador >= CartaEnMano.Length)
+        {
+            return SeedType.None;
+        }
+        try
+        {
+            var cursor = tablero?.CursorObjects?[jugador];
+            if (cursor != null && cursor.mType != SeedType.None)
+            {
+                return cursor.mType;
+            }
+        }
+        catch (Exception)
+        {
+            // si el juego cambia CursorObjects, queda el respaldo
+        }
+        return CartaEnMano[jugador];
+    }
+
     internal static bool EnviarClicDeBuzo(Board tablero, int x, int y, int clics, int jugador)
     {
-        if (!Piscina || jugador < 0 || jugador >= CartaEnMano.Length || CartaEnMano[jugador] != CartaBuzo || tablero.mChallenge == null)
+        if (!Piscina || tablero == null || tablero.mChallenge == null || CartaDelJugador(tablero, jugador) != CartaBuzo)
         {
             return true;
         }
@@ -980,9 +1005,9 @@ internal static class MapaVersus
         return false;
     }
 
-    internal static void EmpezarColocacion(int jugador)
+    internal static void EmpezarColocacion(Challenge reto, int jugador)
     {
-        _colocando = Piscina && jugador >= 0 && jugador < CartaEnMano.Length ? CartaEnMano[jugador] : SeedType.None;
+        _colocando = Piscina ? CartaDelJugador(reto?.mBoard, jugador) : SeedType.None;
     }
 
     internal static void TerminarColocacion()
@@ -1100,9 +1125,14 @@ internal static class MapaVersus
         {
             return;
         }
-        VersusBotMod.Detalle("Desplazamiento de silueta: delfín " + delfin.m_previewSpriteOffset + ", buzo " + buzo?.m_previewSpriteOffset + ", normal " + normal?.m_previewSpriteOffset);
+        VersusBotMod.Log.Msg("Silueta: delfín " + delfin.m_previewSpriteOffset + " imagen=" + (delfin.m_previewSprite != null && delfin.m_previewSprite.RuntimeKeyIsValid()) + ", buzo " + buzo?.m_previewSpriteOffset + " imagen=" + (buzo?.m_previewSprite != null && buzo.m_previewSprite.RuntimeKeyIsValid()) + ", normal " + normal?.m_previewSpriteOffset);
         delfin.m_previewSpriteOffset += CorreccionSiluetaDelfin;
+        _referenciaSiluetaBuzo = buzo?.m_previewSprite;
     }
+
+    // Imagen de la silueta del buzo: el juego no la carga sola (ver ParcheSiluetaBuzo).
+    private static UnityEngine.AddressableAssets.AssetReferenceSprite _referenciaSiluetaBuzo;
+    internal static UnityEngine.AddressableAssets.AssetReferenceSprite ReferenciaSiluetaBuzo() => _referenciaSiluetaBuzo;
 
     private static readonly SeedType[] OrdenDeCartas =
     {
@@ -1226,7 +1256,7 @@ internal static class MapaVersus
             zombi.mX = real;
             if (zombi.mZombiePhase == ZombiePhase.DolphinIntoPool || zombi.mZombiePhase == ZombiePhase.SnorkelIntoPool)
             {
-                VersusBotMod.Log.Msg(zombi.mZombieType + " entra al agua en x=" + real + ", fila " + zombi.mRow);
+                VersusBotMod.Log.Msg(zombi.mZombieType + " entra al agua en x=" + real + ", fila " + (zombi.mRow + 1));
             }
         }
     }
@@ -1552,9 +1582,9 @@ internal static class ParcheClicConBuzo
 [HarmonyPatch(typeof(Challenge), nameof(Challenge.IZombieMouseDownWithZombie))]
 internal static class ParcheClicDeZombiNuevo
 {
-    private static void Prefix(int playerIndex)
+    private static void Prefix(Challenge __instance, int playerIndex)
     {
-        MapaVersus.EmpezarColocacion(playerIndex);
+        MapaVersus.EmpezarColocacion(__instance, playerIndex);
     }
 
     private static void Postfix()
@@ -1859,7 +1889,7 @@ internal static class ParcheAspiradora
         // El juego llama esto en cada cuadro con tumbas y objetivos, y a esos no les hace nada.
         if (MapaVersus.Piscina && theZombie.mZombieType != ZombieType.Target && theZombie.mZombieType != ZombieType.Gravestone)
         {
-            VersusBotMod.Log.Msg("Máquina " + __instance.mMowerType + " de la fila " + __instance.Row + " en x=" + __instance.mX + " se lleva a " + theZombie.mZombieType + " (x=" + theZombie.mPosX + ", fase=" + theZombie.mZombiePhase + ")");
+            VersusBotMod.Log.Msg("Máquina " + __instance.mMowerType + " de la fila " + (__instance.Row + 1) + " en x=" + __instance.mX + " se lleva a " + theZombie.mZombieType + " (x=" + theZombie.mPosX + ", fase=" + theZombie.mZombiePhase + ")");
         }
         return true;
     }
@@ -2166,4 +2196,91 @@ internal static class CodigoDeCartas
         _activo = activar;
         VersusBotMod.Log.Msg("Rango de cartas de zombi " + (activar ? "con buzo." : "original."));
     }
+}
+
+// La silueta del buzo sale sin imagen: el juego crea el objeto, lo enciende y lo mueve a la casilla,
+// pero no le carga el dibujo. Se le pone la imagen de la definición del buzo (archivos del juego).
+// El registro anota una vez dónde quedan la del buzo y la del delfín, por si hay que ajustar la posición.
+[HarmonyPatch(typeof(CursorPreview), nameof(CursorPreview.UpdateCursorPreview))]
+internal static class ParcheSiluetaBuzo
+{
+    // Posición local de la silueta del delfín ya corregida (desplazamiento del juego + corrección del mod),
+    // medida en el registro: (116, -50).
+    private static readonly Vector2 PosicionSiluetaDelfin = new Vector2(116f, -50f);
+    private static Sprite _imagen;
+    private static bool _intentado;
+    private static bool _anotadoBuzo;
+    private static bool _anotadoDelfin;
+
+    private static void Postfix(CursorPreview __instance, int playerIndex)
+    {
+        if (!MapaVersus.Piscina)
+        {
+            return;
+        }
+        var cursor = MapaVersus.TableroActual?.CursorObjects?[playerIndex];
+        var objeto = __instance.mController != null ? __instance.mController.gameObject : null;
+        if (cursor == null || objeto == null)
+        {
+            return;
+        }
+        var renderers = objeto.GetComponentsInChildren<SpriteRenderer>(true);
+        if (cursor.mType == MapaVersus.CartaDelfin)
+        {
+            if (!_anotadoDelfin && renderers.Length > 0 && renderers[0].sprite != null)
+            {
+                _anotadoDelfin = true;
+                VersusBotMod.Log.Msg("Silueta del delfín: posición local " + renderers[0].transform.localPosition + ", escala " + renderers[0].transform.localScale);
+            }
+            return;
+        }
+        if (cursor.mType != MapaVersus.CartaBuzo)
+        {
+            return;
+        }
+        var imagen = Imagen();
+        if (imagen == null)
+        {
+            return;
+        }
+        for (var i = 0; i < renderers.Length; i++)
+        {
+            var r = renderers[i];
+            if (r.sprite != null)
+            {
+                continue;
+            }
+            r.sprite = imagen;
+            // Sin desplazamiento quedaba corrida hacia adelante: se usa la posición que el juego da a la del delfín.
+            r.transform.localPosition = new Vector3(PosicionSiluetaDelfin.x, PosicionSiluetaDelfin.y, r.transform.localPosition.z);
+            if (!_anotadoBuzo)
+            {
+                _anotadoBuzo = true;
+                VersusBotMod.Log.Msg("Silueta del buzo: imagen puesta (" + imagen.name + "), posición local " + r.transform.localPosition + ", escala " + r.transform.localScale);
+            }
+        }
+    }
+
+    private static Sprite Imagen()
+    {
+        if (_imagen != null || _intentado)
+        {
+            return _imagen;
+        }
+        _intentado = true;
+        var referencia = MapaVersus.ReferenciaSiluetaBuzo();
+        if (referencia == null || !referencia.RuntimeKeyIsValid())
+        {
+            VersusBotMod.Log.Warning("Silueta del buzo: su definición no trae imagen.");
+            return null;
+        }
+        _imagen = UnityEngine.AddressableAssets.Addressables.LoadAssetAsync<Sprite>(referencia.RuntimeKey).WaitForCompletion();
+        if (_imagen == null)
+        {
+            VersusBotMod.Log.Warning("Silueta del buzo: no se pudo cargar su imagen.");
+        }
+        return _imagen;
+    }
+
+    private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
 }

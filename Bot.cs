@@ -845,7 +845,7 @@ internal sealed class Bot
         var y = tablero.GridToPixelY(columna, fila) + MitadCasillaY;
         tablero.MouseDownWithPlant(x, y, 1, _indice);
         tablero.ClearCursor(true, _indice);
-        VersusBotMod.Log.Msg("Bot J" + (_indice + 1) + ": " + tipo + " en columna " + columna + ", fila " + fila + " (" + motivo + ", recargando=" + carta.mRefreshing + ", recarga=" + carta.mRefreshTime + ", soles=" + SolesDe(tablero) + ")");
+        VersusBotMod.Log.Msg("Bot J" + (_indice + 1) + ": " + tipo + " en columna " + (columna + 1) + ", fila " + (fila + 1) + " (" + motivo + ", recargando=" + carta.mRefreshing + ", recarga=" + carta.mRefreshTime + ", soles=" + SolesDe(tablero) + ")");
     }
 
     // Para el registro: lo que le queda, de 25 en 25, preguntándole al juego si le alcanza.

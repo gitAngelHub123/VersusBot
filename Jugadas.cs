@@ -111,13 +111,13 @@ internal static class RegistroJugadas
     {
         if (EsPersonaEnVersus(jugador))
         {
-            Anotar("J" + (jugador + 1) + " usó " + tipo + " en columna " + tablero.PixelToGridX(x, y) + ", fila " + tablero.PixelToGridY(x, y));
+            Anotar("J" + (jugador + 1) + " usó " + tipo + " en columna " + (tablero.PixelToGridX(x, y) + 1) + ", fila " + (tablero.PixelToGridY(x, y) + 1));
         }
     });
 
     private static string Casilla(Board tablero, SeedType carta)
     {
-        return "columna " + tablero.PlantingPixelToGridX(_clicX, _clicY, carta) + ", fila " + tablero.PlantingPixelToGridY(_clicX, _clicY, carta);
+        return "columna " + (tablero.PlantingPixelToGridX(_clicX, _clicY, carta) + 1) + ", fila " + (tablero.PlantingPixelToGridY(_clicX, _clicY, carta) + 1);
     }
 
     // Las cartas extra se reparten al empezar, así que el mazo se lee poco después.
