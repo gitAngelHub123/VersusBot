@@ -86,6 +86,20 @@ internal static class MapaVersus
 
     internal static bool EsElMapa(bool piscina, bool noche) => Piscina == piscina && Noche == noche;
 
+    // Número guardado en las preferencias: 0 Jardín, 1 Jardín de noche, 2 Piscina, 3 Piscina de noche.
+    private static int NumeroDelMapa => (Piscina ? 2 : 0) + (Noche ? 1 : 0);
+
+    // Al abrir el juego: el mapa de la última vez (se aplica cuando se crea el tablero de Versus).
+    internal static void Cargar(int numero)
+    {
+        Piscina = numero == 2 || numero == 3;
+        Noche = numero == 1 || numero == 3;
+        if (MapaPropio)
+        {
+            VersusBotMod.Log.Msg("Mapa guardado: " + NombreDelMapa);
+        }
+    }
+
     private static string NombreDelMapa => Piscina ? (Noche ? "piscina de noche" : "piscina") : (Noche ? "jardín de noche" : "jardín");
 
     private static GameplayActivity _partida;
@@ -158,6 +172,7 @@ internal static class MapaVersus
                 PonerFondo(tablero);
             }
             VersusBotMod.Log.Msg("Mapa: " + NombreDelMapa + (tablero == null ? " (se aplicará al crear el tablero)" : ""));
+            VersusBotMod.GuardarMapa(NumeroDelMapa);
         }
         catch (Exception e)
         {
@@ -488,7 +503,8 @@ internal static class MapaVersus
         var tablero = zombi.mBoard;
         if (tablero != null)
         {
-            tablero.mBackground = BackgroundType.Pool;
+            // De noche la piscina usa el fondo de niebla: antes volvía siempre al de día.
+            tablero.mBackground = Noche ? BackgroundType.Fog : BackgroundType.Pool;
         }
         if (zombi.mInPool)
         {

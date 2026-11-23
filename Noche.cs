@@ -28,6 +28,9 @@ internal static class CartaFija
 {
     internal static SeedType Actual => MapaVersus.Noche ? SeedType.Sunshroom : SeedType.Sunflower;
 
+    // Bancos en los que el mod cambió el Girasol fijo por la Seta solar.
+    private static readonly System.Collections.Generic.HashSet<IntPtr> BancosCambiados = new System.Collections.Generic.HashSet<IntPtr>();
+
     internal static void Ajustar(SeedChooserScreen selector)
     {
         var tablero = selector?.mBoard;
@@ -41,9 +44,23 @@ internal static class CartaFija
         {
             var banco = tablero.SeedBanks[jugador];
             var paquetes = banco?.mSeedPackets;
-            if (paquetes == null || paquetes.Length == 0 || paquetes[0] == null || paquetes[0].mPacketType != quitar)
+            if (banco == null || paquetes == null || paquetes.Length == 0 || paquetes[0] == null || paquetes[0].mPacketType != quitar)
             {
                 continue;
+            }
+            // De día solo se devuelve el Girasol donde el mod puso la Seta solar: una Seta solar elegida
+            // por alguien en el espacio 1 (otros modos, batallas aleatorias) no se toca.
+            if (!MapaVersus.Noche && !BancosCambiados.Contains(banco.Pointer))
+            {
+                continue;
+            }
+            if (MapaVersus.Noche)
+            {
+                BancosCambiados.Add(banco.Pointer);
+            }
+            else
+            {
+                BancosCambiados.Remove(banco.Pointer);
             }
             paquetes[0].SetPacketType(Actual, SeedType.None);
             VersusBotMod.Log.Msg("Carta fija de las plantas: " + quitar + " → " + Actual + " (jugador " + (jugador + 1) + ")");

@@ -71,7 +71,7 @@ internal static class Estrategia
     private static readonly HashSet<IntPtr> ZombisContados = new HashSet<IntPtr>();
     private static IntPtr _tableroLeido;
     private static bool _globoListo;
-    private static bool _hipnosetaLista;
+
     private static bool _plantaParaNenufar;
     private static bool _otroAtacante;
     private const int GirasolesPrioritarios = 4;
@@ -379,13 +379,6 @@ internal static class Estrategia
         _globoListo = false;
         _plantaParaNenufar = false;
         _otroAtacante = false;
-        // ¿La hipnoseta propia está lista? Si lo está, la papa no se gasta en el balde ni en el de fútbol.
-        _hipnosetaLista = false;
-        for (var i = 0; propio != null && i < propio.NumPackets; i++)
-        {
-            var carta = propio.SeedPackets[i];
-            _hipnosetaLista |= carta != null && carta.mPacketType == SeedType.Hypnoshroom && !carta.mRefreshing;
-        }
         if (!Maestro)
         {
             return;
@@ -595,7 +588,7 @@ internal static class Estrategia
         if (Cartas.EsHongo(tipo) && !_esDeNoche && !CartasPropias.Contains(SeedType.InstantCoffee)) return null;
         if (tipo == SeedType.InstantCoffee) return DespertarHongo(tablero, tipo);
         if (tipo == SeedType.Magnetshroom) return PonerIman(tablero, tipo);
-        if (tipo == SeedType.Hypnoshroom) return HipnotizarTanque(tablero, tipo) ?? Aplastar(tablero, tipo, 1, "hipnotizar al zombi");
+        if (tipo == SeedType.Hypnoshroom) return Aplastar(tablero, tipo, 1, "hipnotizar al zombi");
         if (tipo == SeedType.Umbrella) return PonerParaguas(tablero, tipo);
         if (tipo == SeedType.Squash) return Aplastar(tablero, tipo, 0, "aplastar al zombi más peligroso");
         if (tipo == SeedType.Chomper) return Aplastar(tablero, tipo, 1, "comerse al zombi más peligroso");
@@ -638,11 +631,6 @@ internal static class Estrategia
             {
                 continue;
             }
-            // Con la hipnoseta lista, la papa se guarda: el balde y el de fútbol son para la hipnoseta.
-            if (tipo == SeedType.Potatomine && _hipnosetaLista && EsTanqueParaHipnoseta(zombi))
-            {
-                continue;
-            }
             var vida = VidaDe(zombi);
             var columnaZombi = ColumnaDe(tablero, zombi);
             var alAlcance = columnaZombi <= ColumnaAlcanceCartaFuerte;
@@ -669,35 +657,6 @@ internal static class Estrategia
             if (columna >= 0 && tablero.CanPlantAt(columna, zombi.mRow, tipo) == PlantingReason.Ok)
             {
                 mejor = new Casilla { Columna = columna, Fila = zombi.mRow, Valor = valor, Motivo = motivo + " (" + zombi.mZombieType + ", vida " + vida + DescribirFila(zombi.mRow) + ")" };
-            }
-        }
-        return mejor;
-    }
-
-    // Zombis para la hipnoseta (pedido del usuario): el de balde y el de fútbol americano.
-    // Hipnotizado, camina hacia los suyos y deja la línea defendida.
-    private static bool EsTanqueParaHipnoseta(Zombie zombi) =>
-        (zombi.mZombieType == ZombieType.Pail || zombi.mZombieType == ZombieType.Football) && !zombi.mMindControlled;
-
-    // La hipnoseta va justo delante del balde o del de fútbol: el que esté más cerca de la casa.
-    private static Casilla HipnotizarTanque(Board tablero, SeedType tipo)
-    {
-        Casilla mejor = null;
-        foreach (var zombi in Vivos)
-        {
-            if (!EsTanqueParaHipnoseta(zombi) || zombi.IsDeadOrDying())
-            {
-                continue;
-            }
-            var columna = ColumnaDe(tablero, zombi) - 1;
-            if (columna < 0 || columna > ColumnaAlcanceCartaFuerte || tablero.CanPlantAt(columna, zombi.mRow, tipo) != PlantingReason.Ok)
-            {
-                continue;
-            }
-            var valor = ValorInstantanea + Peligro(tablero, zombi) + (Urgente(tablero, zombi) ? ValorEmergencia : 0f);
-            if (mejor == null || valor > mejor.Valor)
-            {
-                mejor = new Casilla { Columna = columna, Fila = zombi.mRow, Valor = valor, Motivo = "hipnoseta delante del " + zombi.mZombieType + DescribirFila(zombi.mRow) };
             }
         }
         return mejor;
