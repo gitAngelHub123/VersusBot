@@ -441,7 +441,7 @@ internal static class MapaVersus
             return;
         }
         nuevo.mPosX = plantilla.mPosX;
-        VersusBotMod.Detalle("Sexto objetivo creado: fila " + nuevo.mRow + ", columna " + columna + ", vida " + nuevo.mBodyHealth + " (el de la fila 5 tiene " + plantilla.mBodyHealth + ")");
+        VersusBotMod.Detalle("Sexto objetivo creado: fila " + (nuevo.mRow + 1) + ", columna " + (columna + 1) + ", vida " + nuevo.mBodyHealth + " (el de la fila " + (plantilla.mRow + 1) + " tiene " + plantilla.mBodyHealth + ")");
     }
 
     // El juego hace nacer del agua a todo zombi que sube del suelo si el mapa tiene piscina.
@@ -538,14 +538,14 @@ internal static class MapaVersus
         }
         if (_reparados.Remove(zombi.Pointer))
         {
-            VersusBotMod.Detalle("Normal después de encender sus partes: fila " + zombi.mRow + " [" + estado + "]");
+            VersusBotMod.Detalle("Normal después de encender sus partes: fila " + (zombi.mRow + 1) + " [" + estado + "]");
         }
         if (hayParte || apagadas.Count == 0 || zombi.mZombieType != ZombieType.Normal)
         {
             return;
         }
         _reparados.Add(zombi.Pointer);
-        VersusBotMod.Detalle("Normal sin cuerpo: fila " + zombi.mRow + " x=" + zombi.mPosX + " fase=" + zombi.mZombiePhase + " agua=" + zombi.mInPool
+        VersusBotMod.Detalle("Normal sin cuerpo: fila " + (zombi.mRow + 1) + " x=" + zombi.mPosX + " fase=" + zombi.mZombiePhase + " agua=" + zombi.mInPool
             + " separador=" + controlador.m_materialEffectController?.m_enableRenderSeparator + " [" + estado + "]");
         foreach (var parte in apagadas)
         {
@@ -1125,7 +1125,7 @@ internal static class MapaVersus
         {
             return;
         }
-        VersusBotMod.Detalle("Desplazamiento de silueta: delfín " + delfin.m_previewSpriteOffset + ", buzo " + buzo?.m_previewSpriteOffset + ", normal " + normal?.m_previewSpriteOffset);
+        VersusBotMod.Log.Msg("Silueta: delfín " + delfin.m_previewSpriteOffset + " imagen=" + (delfin.m_previewSprite != null && delfin.m_previewSprite.RuntimeKeyIsValid()) + ", buzo " + buzo?.m_previewSpriteOffset + " imagen=" + (buzo?.m_previewSprite != null && buzo.m_previewSprite.RuntimeKeyIsValid()) + ", normal " + normal?.m_previewSpriteOffset);
         delfin.m_previewSpriteOffset += CorreccionSiluetaDelfin;
     }
 
@@ -1251,7 +1251,7 @@ internal static class MapaVersus
             zombi.mX = real;
             if (zombi.mZombiePhase == ZombiePhase.DolphinIntoPool || zombi.mZombiePhase == ZombiePhase.SnorkelIntoPool)
             {
-                VersusBotMod.Log.Msg(zombi.mZombieType + " entra al agua en x=" + real + ", fila " + zombi.mRow);
+                VersusBotMod.Log.Msg(zombi.mZombieType + " entra al agua en x=" + real + ", fila " + (zombi.mRow + 1));
             }
         }
     }
@@ -1884,7 +1884,7 @@ internal static class ParcheAspiradora
         // El juego llama esto en cada cuadro con tumbas y objetivos, y a esos no les hace nada.
         if (MapaVersus.Piscina && theZombie.mZombieType != ZombieType.Target && theZombie.mZombieType != ZombieType.Gravestone)
         {
-            VersusBotMod.Log.Msg("Máquina " + __instance.mMowerType + " de la fila " + __instance.Row + " en x=" + __instance.mX + " se lleva a " + theZombie.mZombieType + " (x=" + theZombie.mPosX + ", fase=" + theZombie.mZombiePhase + ")");
+            VersusBotMod.Log.Msg("Máquina " + __instance.mMowerType + " de la fila " + (__instance.Row + 1) + " en x=" + __instance.mX + " se lleva a " + theZombie.mZombieType + " (x=" + theZombie.mPosX + ", fase=" + theZombie.mZombiePhase + ")");
         }
         return true;
     }
@@ -2191,4 +2191,36 @@ internal static class CodigoDeCartas
         _activo = activar;
         VersusBotMod.Log.Msg("Rango de cartas de zombi " + (activar ? "con buzo." : "original."));
     }
+}
+
+// DIAGNÓSTICO 1.0.1 (temporal): por qué el buzo no muestra silueta antes de colocarlo.
+// Mientras un jugador tenga la carta del buzo en la mano, anota una vez por segundo dónde está el cursor
+// y en qué estado está la silueta.
+[HarmonyPatch(typeof(CursorPreview), nameof(CursorPreview.UpdateCursorPreview))]
+internal static class DiagnosticoSiluetaBuzo
+{
+    private static float _ultimo;
+
+    private static void Postfix(CursorPreview __instance, int playerIndex)
+    {
+        if (!MapaVersus.Piscina || Time.unscaledTime - _ultimo < 1f)
+        {
+            return;
+        }
+        var tablero = MapaVersus.TableroActual;
+        var cursor = tablero?.CursorObjects?[playerIndex];
+        if (cursor == null || cursor.mType != MapaVersus.CartaBuzo)
+        {
+            return;
+        }
+        _ultimo = Time.unscaledTime;
+        var vista = __instance.mController;
+        var objeto = vista != null ? vista.gameObject : null;
+        VersusBotMod.Log.Msg("Silueta buzo J" + (playerIndex + 1) + ": columna " + (__instance.mGridX + 1) + ", fila " + (__instance.mGridY + 1)
+            + " cursor=" + cursor.mCursorType + " vista=" + (vista != null)
+            + " activa=" + (objeto != null && objeto.activeInHierarchy)
+            + " pos=" + (objeto != null ? objeto.transform.position.ToString() : "-"));
+    }
+
+    private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
 }
