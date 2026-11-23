@@ -38,6 +38,8 @@ internal static class Estrategia
     private const float ValorRelleno = 40f;
     // De noche el bot quiere esta cantidad más de setas solares que de girasoles de día (pedido del usuario).
     private const int SetasSolaresExtra = 2;
+    // Extra para defender una fila con plantas de sol (prioridad 2, por debajo del peligro de la fila).
+    private const float BonoDefenderSoles = 100f;
     // La seta gratis no pasa de esta columna: más adelante queda en la zona de los zombis.
     private const int ColumnaSetaGratisMaxima = 5;
     // Sin peligro va más atrás: columna 5 en pantalla (índice 4).
@@ -886,6 +888,11 @@ internal static class Estrategia
         for (var fila = 0; fila < Filas; fila++)
         {
             var peligro = DeficitPonderado(fila);
+            // A igual peligro, primero la fila con plantas de sol.
+            if (peligro > 0f && ContarEnFila(tablero, fila, EsEconomia) > 0)
+            {
+                peligro += BonoDefenderSoles;
+            }
             if (peligro > mayor && !FilaSinInteres(fila))
             {
                 mayor = peligro;
@@ -1097,6 +1104,13 @@ internal static class Estrategia
                 var cerca = ZombiMasCercano(tablero, fila) <= ColumnaDefensaCercana;
                 valor = ValorFilaSinDefensa + DeficitPonderado(fila) * (cerca ? 1f : FraccionDeficitLejano) + DanoDe(tipo);
                 motivo = "defender: faltan " + (int)DeficitPorFila[fila] + " de daño";
+                // Prioridad 2 (pedido del usuario): proteger las plantas de sol. Menor que la diferencia
+                // normal de peligro, así la fila que más peligra (prioridad 1) sigue primero.
+                if (ContarEnFila(tablero, fila, EsEconomia) > 0)
+                {
+                    valor += BonoDefenderSoles;
+                    motivo += ", protege plantas de sol";
+                }
             }
             else if (ObjetivoPorFila[fila])
             {
