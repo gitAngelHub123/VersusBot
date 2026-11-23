@@ -322,7 +322,8 @@ internal sealed class Bot
             {
                 return carta;
             }
-            if (carta.mSeedState != ChosenSeedState.SeedInChooser && carta.mSeedType != economia && carta.mSeedType != SeedType.Lilypad)
+            if (carta.mSeedState != ChosenSeedState.SeedInChooser && carta.mSeedType != economia && carta.mSeedType != SeedType.Lilypad
+                && carta.mSeedType != SeedType.Sunflower && carta.mSeedType != SeedType.Sunshroom)
             {
                 propias.Add(carta.mSeedType);
             }
