@@ -236,10 +236,14 @@ internal sealed class Bot
         }
     }
 
-    // Conjunto de plantas del usuario (2026-11-23), en orden de prioridad:
-    // Seta miedica + Hipnoseta siempre; Grano de café de día; Seta desesporada (gratis) siempre de noche;
-    // Zampalga en la piscina; Cactus si el rival lleva globo; Papapum de día; Humoseta de noche; Nuez si sobra espacio.
-    private static List<SeedType> ConjuntoPreferido(bool rivalConGlobo)
+    // Conjunto de plantas del usuario (2026-11-23), en orden de prioridad. Se revisa en cada turno,
+    // así que las respuestas entran apenas el rival elige el zombi:
+    // 1. Seta desesporada (gratis), siempre de noche.
+    // 2. Respuestas al rival: globo → Cactus; Zomboni → Calabaza aplastadora; minero → Guisante partido;
+    //    balde o fútbol americano → Hipnoseta (solo entonces).
+    // 3. Seta miedica; Grano de café solo de día; Zampalga en la piscina; Papapum de día o Humoseta de noche;
+    //    Nuez si sobra espacio.
+    private static List<SeedType> ConjuntoPreferido(Func<SeedType, bool> rivalLleva)
     {
         var noche = MapaVersus.Noche;
         var conjunto = new List<SeedType>();
@@ -247,19 +251,30 @@ internal sealed class Bot
         {
             conjunto.Add(SeedType.Puffshroom);
         }
+        if (rivalLleva(SeedType.ZombieBalloon))
+        {
+            conjunto.Add(SeedType.Cactus);
+        }
+        if (rivalLleva(SeedType.Zomboni))
+        {
+            conjunto.Add(SeedType.Squash);
+        }
+        if (rivalLleva(SeedType.ZombieDigger))
+        {
+            conjunto.Add(SeedType.Splitpea);
+        }
+        if (rivalLleva(SeedType.ZombiePail) || rivalLleva(SeedType.ZombieFootball))
+        {
+            conjunto.Add(SeedType.Hypnoshroom);
+        }
         conjunto.Add(SeedType.Scaredyshroom);
         if (!noche)
         {
             conjunto.Add(SeedType.InstantCoffee);
         }
-        conjunto.Add(SeedType.Hypnoshroom);
         if (MapaVersus.Piscina)
         {
             conjunto.Add(SeedType.Tanglekelp);
-        }
-        if (rivalConGlobo)
-        {
-            conjunto.Add(SeedType.Cactus);
         }
         conjunto.Add(noche ? SeedType.Fumeshroom : SeedType.Potatomine);
         // Espacio que sobre (lo decide el bot, a pedido del usuario): la nuez protege a la seta miedica,
@@ -316,8 +331,7 @@ internal sealed class Bot
         // Conjunto del usuario: va antes que todo lo demás; los espacios que sobren se llenan como siempre.
         if (!esZombi && libres > 0)
         {
-            var conGlobo = elegidasRival.Contains(SeedType.ZombieBalloon) || rival.Contains(SeedType.ZombieBalloon);
-            foreach (var tipo in ConjuntoPreferido(conGlobo))
+            foreach (var tipo in ConjuntoPreferido(z => elegidasRival.Contains(z) || rival.Contains(z)))
             {
                 if (propias.Contains(tipo))
                 {

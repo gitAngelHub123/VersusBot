@@ -112,7 +112,8 @@ internal static class Cartas
     // La carta que debe ir en el mazo para que esta sirva: el café para los hongos de día, o la planta que se mejora.
     internal static SeedType? Requisito(SeedType tipo)
     {
-        if (EsHongo(tipo) && tipo != SeedType.Gloomshroom) return SeedType.InstantCoffee;
+        // De noche las setas están despiertas: no necesitan café.
+        if (EsHongo(tipo) && tipo != SeedType.Gloomshroom) return MapaVersus.Noche ? null : SeedType.InstantCoffee;
         switch (tipo)
         {
             case SeedType.Gatlingpea: return SeedType.Repeater;
