@@ -236,6 +236,38 @@ internal sealed class Bot
         }
     }
 
+    // Conjunto de plantas del usuario (2026-11-23), en orden de prioridad:
+    // Seta miedica + Hipnoseta siempre; Grano de café de día; Seta desesporada (gratis) siempre de noche;
+    // Zampalga en la piscina; Cactus si el rival lleva globo; Papapum de día; Humoseta de noche; Nuez si sobra espacio.
+    private static List<SeedType> ConjuntoPreferido(bool rivalConGlobo)
+    {
+        var noche = MapaVersus.Noche;
+        var conjunto = new List<SeedType>();
+        if (noche)
+        {
+            conjunto.Add(SeedType.Puffshroom);
+        }
+        conjunto.Add(SeedType.Scaredyshroom);
+        if (!noche)
+        {
+            conjunto.Add(SeedType.InstantCoffee);
+        }
+        conjunto.Add(SeedType.Hypnoshroom);
+        if (MapaVersus.Piscina)
+        {
+            conjunto.Add(SeedType.Tanglekelp);
+        }
+        if (rivalConGlobo)
+        {
+            conjunto.Add(SeedType.Cactus);
+        }
+        conjunto.Add(noche ? SeedType.Fumeshroom : SeedType.Potatomine);
+        // Espacio que sobre (lo decide el bot, a pedido del usuario): la nuez protege a la seta miedica,
+        // que se esconde cuando un zombi se le acerca. En las piscinas el mazo ya va lleno.
+        conjunto.Add(SeedType.Wallnut);
+        return conjunto;
+    }
+
     private static bool Disponible(SeedChooserScreen pantalla, ChosenSeed carta)
     {
         return carta != null && carta.mSeedState == ChosenSeedState.SeedInChooser
@@ -280,6 +312,25 @@ internal sealed class Bot
         var libres = CartasDeMazo - propias.Count;
         var elegidasRival = CartasElegidas(esZombi ? pantalla.mChosenSeeds : pantalla.mChosenZombies);
         var rival = CartasConocidasDelRival(elegidasRival);
+
+        // Conjunto del usuario: va antes que todo lo demás; los espacios que sobren se llenan como siempre.
+        if (!esZombi && libres > 0)
+        {
+            var conGlobo = elegidasRival.Contains(SeedType.ZombieBalloon) || rival.Contains(SeedType.ZombieBalloon);
+            foreach (var tipo in ConjuntoPreferido(conGlobo))
+            {
+                if (propias.Contains(tipo))
+                {
+                    continue;
+                }
+                var carta = CartaAlAzar(pantalla, lista, t => t == tipo);
+                if (carta != null)
+                {
+                    VersusBotMod.Log.Msg("Bot J" + (_indice + 1) + " toma del conjunto preferido: " + tipo);
+                    return carta;
+                }
+            }
+        }
 
         if (!esZombi)
         {
