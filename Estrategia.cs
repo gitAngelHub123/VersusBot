@@ -850,6 +850,22 @@ internal static class Estrategia
         return mejor;
     }
 
+    private static bool EsEconomia(SeedType t) => t == SeedType.Sunflower || t == SeedType.Twinsunflower || t == SeedType.Sunshroom;
+
+    // Filas que todavía no tienen ninguna planta de sol, en orden.
+    private static List<int> FilasSinEconomia(Board tablero)
+    {
+        var filas = new List<int>();
+        for (var fila = 0; fila < Filas; fila++)
+        {
+            if (!FilaSinInteres(fila) && ContarEnFila(tablero, fila, EsEconomia) == 0)
+            {
+                filas.Add(fila);
+            }
+        }
+        return filas;
+    }
+
     // Plantas que dan sol: girasol, girasol gemelo y seta solar.
     private static int ContarEconomia(Board tablero)
     {
@@ -919,6 +935,23 @@ internal static class Estrategia
     private static Casilla PonerGirasol(Board tablero, SeedType tipo, int deseados)
     {
         var girasoles = ContarEconomia(tablero);
+        // Mínimo en todos los mapas (pedido del usuario): una planta de sol en cada fila; más, lo decide el bot.
+        var filasSinSol = FilasSinEconomia(tablero);
+        if (filasSinSol.Count > 0)
+        {
+            var valorMinimo = HayZombiMuyCerca(tablero) ? ValorEconomiaBajoPresion : ValorEconomiaPrioritaria;
+            foreach (var fila in filasSinSol)
+            {
+                for (var columna = 0; columna < 2; columna++)
+                {
+                    // En las filas de agua solo si ya hay un nenúfar libre (CanPlantAt lo permite).
+                    if (!FilaAmenazada(tablero, fila) && tablero.CanPlantAt(columna, fila, tipo) == PlantingReason.Ok)
+                    {
+                        return new Casilla { Columna = columna, Fila = fila, Valor = valorMinimo, Motivo = "economía: una por fila" };
+                    }
+                }
+            }
+        }
         if (girasoles >= deseados)
         {
             return null;
