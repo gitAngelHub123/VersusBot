@@ -23,6 +23,9 @@ namespace VersusBot;
 internal static class MapaVersus
 {
     private const int NivelDePiscina = 21;
+    // Primeros niveles de noche y de piscina de noche en el modo aventura (si no calzan, se busca por zona).
+    private const int NivelDeNoche = 11;
+    private const int NivelDePiscinaDeNoche = 31;
     private const int PrimeraFilaDeAgua = 2;
     private const int UltimaFilaDeAgua = 3;
     // Las 3 columnas de la derecha quedan de pasto: es la zona donde entran los zombis.
@@ -75,8 +78,41 @@ internal static class MapaVersus
     private const int DesplazamientoDatos = 0x20;
     private const int TamanoLimite = 16;
 
+    // Mapas: jardín (el del juego), piscina, jardín de noche y piscina de noche (1.1.0).
+    // Piscina = el tablero lleva agua; Noche = fondo y reglas de noche (sin niebla).
     internal static bool Piscina { get; private set; }
-    internal static string EtiquetaBoton => Piscina ? Textos.Jardin : Textos.Piscina;
+    internal static bool Noche { get; private set; }
+    internal static bool MapaPropio => Piscina || Noche;
+
+    // El botón muestra el mapa al que se pasa: Jardín → Piscina → Noche → Piscina de noche → Jardín.
+    internal static string EtiquetaBoton => !Piscina && !Noche ? Textos.Piscina
+        : Piscina && !Noche ? Textos.Noche
+        : !Piscina ? Textos.PiscinaDeNoche
+        : Textos.Jardin;
+
+    private static void Siguiente()
+    {
+        if (!Piscina && !Noche)
+        {
+            Piscina = true;
+        }
+        else if (Piscina && !Noche)
+        {
+            Piscina = false;
+            Noche = true;
+        }
+        else if (!Piscina)
+        {
+            Piscina = true;
+        }
+        else
+        {
+            Piscina = false;
+            Noche = false;
+        }
+    }
+
+    private static string NombreDelMapa => Piscina ? (Noche ? "piscina de noche" : "piscina") : (Noche ? "jardín de noche" : "jardín");
 
     private static GameplayActivity _partida;
     private static IntPtr _tableroGuardado;
@@ -121,7 +157,7 @@ internal static class MapaVersus
     {
         _partida = tablero.mApp;
         Guardar(tablero);
-        if (Piscina)
+        if (MapaPropio)
         {
             AplicarReglas(tablero);
         }
@@ -129,7 +165,9 @@ internal static class MapaVersus
 
     internal static void Cambiar()
     {
-        Piscina = !Piscina;
+        var piscinaAntes = Piscina;
+        var nocheAntes = Noche;
+        Siguiente();
         try
         {
             var tablero = TableroActual;
@@ -139,20 +177,21 @@ internal static class MapaVersus
                 AplicarReglas(tablero);
                 PonerFondo(tablero);
             }
-            VersusBotMod.Log.Msg("Mapa: " + (Piscina ? "piscina" : "jardín") + (tablero == null ? " (se aplicará al crear el tablero)" : ""));
+            VersusBotMod.Log.Msg("Mapa: " + NombreDelMapa + (tablero == null ? " (se aplicará al crear el tablero)" : ""));
         }
         catch (Exception e)
         {
-            Piscina = !Piscina;
+            Piscina = piscinaAntes;
+            Noche = nocheAntes;
             VersusBotMod.Log.Error("No se pudo cambiar el mapa: " + e);
         }
     }
 
-    // Una revancha crea otro tablero: hay que volver a poner la piscina.
+    // Una revancha crea otro tablero: hay que volver a poner el mapa elegido.
     internal static void Asegurar()
     {
         var tablero = TableroActual;
-        if (!Piscina || tablero == null)
+        if (!MapaPropio || tablero == null)
         {
             return;
         }
@@ -194,7 +233,9 @@ internal static class MapaVersus
 
     private static void AplicarReglas(Board tablero)
     {
-        tablero.mBackground = Piscina ? BackgroundType.Pool : _fondoOriginal;
+        // De noche la piscina usa el fondo de niebla (el juego lo trata como piscina y como noche); la niebla se apaga aparte.
+        tablero.mBackground = Piscina ? (Noche ? BackgroundType.Fog : BackgroundType.Pool)
+            : Noche ? BackgroundType.Night : _fondoOriginal;
         var filas = tablero.mPlantRow;
         for (var i = 0; i < filas.Length; i++)
         {
@@ -1369,10 +1410,11 @@ internal static class MapaVersus
 
     private static void PonerFondo(Board tablero)
     {
-        var datos = Piscina ? BuscarDatosDePiscina() : _datosOriginales;
+        var datos = Piscina ? (Noche ? BuscarDatos(GameArea.Fog, NivelDePiscinaDeNoche) : BuscarDatos(GameArea.Pool, NivelDePiscina))
+            : Noche ? BuscarDatos(GameArea.Night, NivelDeNoche) : _datosOriginales;
         if (datos == null)
         {
-            VersusBotMod.Log.Warning("No se encontraron los datos del mapa de piscina.");
+            VersusBotMod.Log.Warning("No se encontraron los datos del mapa: " + NombreDelMapa + ".");
             return;
         }
         var anterior = _partida.BackgroundController;
@@ -1394,17 +1436,18 @@ internal static class MapaVersus
             + _partida.LevelBackground?.name + ". Fondos en escena: " + fondos);
     }
 
-    private static LevelEntryData BuscarDatosDePiscina()
+    // Datos del primer nivel de una zona del modo aventura (de ahí sale el fondo).
+    private static LevelEntryData BuscarDatos(GameArea zona, int nivel)
     {
-        var datos = _partida.GetLevelEntryData(NivelDePiscina);
-        if (datos != null && datos.GameArea == GameArea.Pool)
+        var datos = _partida.GetLevelEntryData(nivel);
+        if (datos != null && datos.GameArea == zona)
         {
             return datos;
         }
         foreach (var objeto in Resources.FindObjectsOfTypeAll(Il2CppType.Of<LevelEntryData>()))
         {
             var candidato = objeto.Cast<LevelEntryData>();
-            if (candidato.GameArea == GameArea.Pool)
+            if (candidato.GameArea == zona)
             {
                 return candidato;
             }
