@@ -2,7 +2,7 @@
 // El juego decide todo lo de la noche por el fondo del tablero (Night o Fog):
 // setas despiertas, sin caída del cielo, niebla en Fog y tumbas al azar en Night.
 // Reglas pedidas para Versus: sin niebla, sin tumbas al azar, cielo al doble de lento
-// (sol y cerebros) y tumbas de los zombis que dan cerebros el doble de rápido.
+// (solo los cerebros; el sol de las plantas cae como de día) y tumbas que dan cerebros el doble de rápido.
 using System;
 using HarmonyLib;
 using Il2CppReloaded.Gameplay;
@@ -11,7 +11,8 @@ namespace VersusBot;
 
 internal static class ReglasDeNoche
 {
-    // Cuánto más lento cae el cielo de noche y cuánto más rápido producen las tumbas.
+    // De noche: los cerebros del cielo caen 1 de cada FactorCielo veces (el sol, igual que de día);
+    // las tumbas producen FactorTumbas veces más rápido.
     internal const int FactorCielo = 2;
     internal const int FactorTumbas = 2;
 
@@ -81,7 +82,8 @@ internal static class ParcheSinTumbasAlAzar
 }
 
 // De noche el juego no deja caer nada del cielo. Durante la caída se le muestra el fondo de día
-// (jardín o piscina) para que caigan sol y cerebros, y la espera hasta la siguiente se alarga.
+// (jardín o piscina) para que caiga como de día. El sol de las plantas cae igual que de día; los
+// cerebros, que caen a la vez y con el mismo contador, se retiran en 1 de cada 2 caídas.
 [HarmonyPatch(typeof(Board), "UpdateSunSpawning")]
 internal static class ParcheCieloDeNoche
 {
@@ -89,8 +91,11 @@ internal static class ParcheCieloDeNoche
     {
         internal bool Activo;
         internal BackgroundType Fondo;
-        internal int Espera;
     }
+
+    private static int _caidas;
+    // Mientras dura la caída actual: ¿se retiran los cerebros que aparezcan?
+    internal static bool SinCerebrosAhora { get; private set; }
 
     private static void Prefix(Board __instance, out Estado __state)
     {
@@ -101,33 +106,49 @@ internal static class ParcheCieloDeNoche
         }
         __state.Activo = true;
         __state.Fondo = __instance.mBackground;
-        __state.Espera = __instance.mSunCountDown;
         __instance.mBackground = MapaVersus.Piscina ? BackgroundType.Pool : BackgroundType.Day;
+        // El juego baja el contador de 1 en 1 y suelta las monedas cuando llega a 0.
+        if (__instance.mSunCountDown == 1)
+        {
+            _caidas++;
+            SinCerebrosAhora = _caidas % ReglasDeNoche.FactorCielo != 0;
+        }
     }
 
     private static void Postfix(Board __instance, Estado __state)
     {
-        if (!__state.Activo)
+        SinCerebrosAhora = false;
+        if (__state.Activo)
         {
-            return;
-        }
-        __instance.mBackground = __state.Fondo;
-        // Si el juego programó una nueva caída, la espera subió: se multiplica.
-        if (__instance.mSunCountDown > __state.Espera)
-        {
-            __instance.mSunCountDown *= ReglasDeNoche.FactorCielo;
+            __instance.mBackground = __state.Fondo;
         }
     }
 
     // Si algo falla, el fondo vuelve a ser el de noche igual.
     private static Exception Finalizer(Board __instance, Estado __state, Exception __exception)
     {
+        SinCerebrosAhora = false;
         if (__state.Activo && __instance != null)
         {
             __instance.mBackground = __state.Fondo;
         }
         return MapaVersus.Registrar(__exception);
     }
+}
+
+// Retira los cerebros del cielo en las caídas que tocan sin cerebros (ver ParcheCieloDeNoche).
+[HarmonyPatch(typeof(Board), nameof(Board.AddCoin))]
+internal static class ParcheCerebrosDeNoche
+{
+    private static void Postfix(Coin __result, CoinType theCoinType)
+    {
+        if (ParcheCieloDeNoche.SinCerebrosAhora && theCoinType == CoinType.Brain && __result != null)
+        {
+            __result.Die();
+        }
+    }
+
+    private static Exception Finalizer(Exception __exception) => MapaVersus.Registrar(__exception);
 }
 
 // En los mapas de noche las setas siempre están despiertas: cualquier orden de dormir se anula.
