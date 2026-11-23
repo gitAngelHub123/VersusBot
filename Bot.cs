@@ -283,6 +283,21 @@ internal sealed class Bot
         return conjunto;
     }
 
+    // Por qué una carta no se puede elegir (para la recapitulación del registro).
+    private static string MotivoNoDisponible(SeedChooserScreen pantalla, Il2CppSystem.Collections.Generic.List<ChosenSeed> lista, SeedType tipo)
+    {
+        for (var i = 0; i < lista.Count; i++)
+        {
+            var carta = lista[i];
+            if (carta == null || carta.mSeedType != tipo)
+            {
+                continue;
+            }
+            return "estado=" + carta.mSeedState + ", no permitida=" + pantalla.SeedNotAllowedToPick(tipo);
+        }
+        return "no está en el selector";
+    }
+
     private static bool Disponible(SeedChooserScreen pantalla, ChosenSeed carta)
     {
         return carta != null && carta.mSeedState == ChosenSeedState.SeedInChooser
@@ -329,9 +344,14 @@ internal sealed class Bot
         var rival = CartasConocidasDelRival(elegidasRival);
 
         // Conjunto del usuario: va antes que todo lo demás; los espacios que sobren se llenan como siempre.
+        // Recapitulación en cada turno (pedido del usuario): qué lleva, cuántos espacios quedan, qué eligió
+        // el rival y qué busca; si una carta de la lista no se puede tomar, se anota por qué.
         if (!esZombi && libres > 0)
         {
-            foreach (var tipo in ConjuntoPreferido(z => elegidasRival.Contains(z) || rival.Contains(z)))
+            var conjunto = ConjuntoPreferido(z => elegidasRival.Contains(z) || rival.Contains(z));
+            VersusBotMod.Log.Msg("Bot J" + (_indice + 1) + " recapitula: lleva [" + string.Join(", ", propias) + "], quedan " + libres
+                + " espacios, el rival eligió [" + string.Join(", ", elegidasRival) + "], busca [" + string.Join(", ", conjunto) + "]");
+            foreach (var tipo in conjunto)
             {
                 if (propias.Contains(tipo))
                 {
@@ -343,6 +363,7 @@ internal sealed class Bot
                     VersusBotMod.Log.Msg("Bot J" + (_indice + 1) + " toma del conjunto preferido: " + tipo);
                     return carta;
                 }
+                VersusBotMod.Log.Msg("Bot J" + (_indice + 1) + " no puede tomar " + tipo + ": " + MotivoNoDisponible(pantalla, lista, tipo));
             }
         }
 
