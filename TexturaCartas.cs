@@ -53,7 +53,8 @@ internal static class TexturaCartas
     private static readonly Dictionary<IntPtr, AddressableSpriteValueModel> Vivos = new Dictionary<IntPtr, AddressableSpriteValueModel>();
     private static readonly Dictionary<SeedType, Sprite> Cartas = new Dictionary<SeedType, Sprite>();
     private static bool _generando;
-    private static bool _generadas;
+    // Cartas que no se pudieron dibujar en esta sesión: no se reintentan en cada selector.
+    private static readonly HashSet<SeedType> Fallidas = new HashSet<SeedType>();
     private static Color32[] _letrero;
     private static int _anchoLetrero;
     private static int _altoLetrero;
@@ -96,12 +97,23 @@ internal static class TexturaCartas
 
     internal static void Generar(IEnumerable<SeedType> tipos, Il2CppReloaded.Services.IDataService datos, GameplayActivity partida)
     {
-        if (_generando || _generadas)
+        // Se dibujan las cartas que falten. Antes se dibujaban una sola vez por sesión: si el primer
+        // selector era del jardín (sin delfín ni buzo, que son solo de piscina), esas dos quedaban
+        // con la imagen del juego para siempre (el Imp en la carta del delfín). Pasaba a todo jugador nuevo.
+        var faltan = new List<SeedType>();
+        foreach (var tipo in tipos)
+        {
+            if (!Cartas.ContainsKey(tipo) && !Fallidas.Contains(tipo))
+            {
+                faltan.Add(tipo);
+            }
+        }
+        if (_generando || faltan.Count == 0)
         {
             return;
         }
         _generando = true;
-        MelonLoader.MelonCoroutines.Start(GenerarLuego(new List<SeedType>(tipos), datos, partida));
+        MelonLoader.MelonCoroutines.Start(GenerarLuego(faltan, datos, partida));
     }
 
     private static IEnumerator GenerarLuego(List<SeedType> tipos, Il2CppReloaded.Services.IDataService datos, GameplayActivity partida)
@@ -193,7 +205,13 @@ internal static class TexturaCartas
         RenderTexture.ReleaseTemporary(rt);
         UnityEngine.Object.Destroy(objetoCamara);
         _generando = false;
-        _generadas = true;
+        foreach (var tipo in tipos)
+        {
+            if (!Cartas.ContainsKey(tipo))
+            {
+                Fallidas.Add(tipo);
+            }
+        }
         VersusBotMod.Detalle("Cartas de zombi listas: " + Cartas.Count + " de " + tipos.Count + " en " + (int)((Time.unscaledTime - inicio) * 1000f) + " ms");
         foreach (var modelo in Vivos.Values)
         {

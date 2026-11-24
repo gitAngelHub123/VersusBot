@@ -21,7 +21,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.UI;
 
-[assembly: MelonInfo(typeof(VersusBot.VersusBotMod), "Versus Bot", "1.1.0", "Angel")]
+[assembly: MelonInfo(typeof(VersusBot.VersusBotMod), "Versus Bot", "1.1.1", "Angel")]
 [assembly: MelonGame("PopCap Games", "PvZ Replanted")]
 
 namespace VersusBot;

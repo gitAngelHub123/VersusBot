@@ -1421,10 +1421,19 @@ internal static class MapaVersus
         _tableroConFondo = tablero.Pointer;
         ConectarClics(anterior, _partida.BackgroundController, tablero);
         MostrarSoloFondoActual();
+        VersusBotMod.Log.Msg("Fondo del mapa " + NombreDelMapa + ": datos de '" + datos.LevelName + "' (zona " + datos.GameArea + ").");
         if (Piscina)
         {
-            CrearParcheDePasto(_partida.LevelBackground);
-            PonerLineaRoja();
+            // Los adornos de la piscina no deben dejar el mapa a medias si fallan.
+            try
+            {
+                CrearParcheDePasto(_partida.LevelBackground);
+                PonerLineaRoja();
+            }
+            catch (Exception e)
+            {
+                VersusBotMod.Log.Error("No se pudieron poner los adornos de la piscina: " + e);
+            }
         }
         var fondos = "";
         foreach (var fondo in UnityEngine.Object.FindObjectsOfType(Il2CppType.Of<BackgroundController>()))
@@ -1435,6 +1444,24 @@ internal static class MapaVersus
             + _partida.LevelBackground?.name + ". Fondos en escena: " + fondos);
     }
 
+    private static LevelEntryData BuscarEnLista(Il2CppSystem.Collections.Generic.IReadOnlyList<LevelEntryData> lista, GameArea zona)
+    {
+        if (lista == null)
+        {
+            return null;
+        }
+        var cantidad = lista.Cast<Il2CppSystem.Collections.Generic.IReadOnlyCollection<LevelEntryData>>().Count;
+        for (var i = 0; i < cantidad; i++)
+        {
+            var candidato = lista[i];
+            if (candidato != null && candidato.GameArea == zona)
+            {
+                return candidato;
+            }
+        }
+        return null;
+    }
+
     // Datos del primer nivel de una zona del modo aventura (de ahí sale el fondo).
     private static LevelEntryData BuscarDatos(GameArea zona, int nivel)
     {
@@ -1443,6 +1470,20 @@ internal static class MapaVersus
         {
             return datos;
         }
+        // GetLevelEntryData no da el nivel de aventura con ese número (en la prueba dio otra zona), así que
+        // se busca en las listas del servicio de datos del juego, que están siempre. Antes solo quedaba
+        // Resources.FindObjectsOfTypeAll, que encuentra los datos solo si ya están cargados en memoria:
+        // en un juego recién abierto podía no hallar la piscina de noche y el fondo quedaba sin cambiar.
+        var servicio = _partida.m_dataService;
+        if (servicio != null)
+        {
+            datos = BuscarEnLista(servicio.AdventureLevelsData, zona) ?? BuscarEnLista(servicio.AllLevelsData, zona);
+            if (datos != null)
+            {
+                return datos;
+            }
+        }
+        VersusBotMod.Log.Warning("Los datos de la zona " + zona + " no están en las listas del juego; se buscan en memoria.");
         foreach (var objeto in Resources.FindObjectsOfTypeAll(Il2CppType.Of<LevelEntryData>()))
         {
             var candidato = objeto.Cast<LevelEntryData>();
@@ -2115,10 +2156,19 @@ internal static class ParcheElegirFondo
 [HarmonyPatch(typeof(VersusMode), nameof(VersusMode.InitializeGameplay))]
 internal static class ParcheEmpezarVersus
 {
+    // Si esto fallara sin atraparlo, Harmony se saltaría InitializeGameplay entero (sin sol del cielo,
+    // fondo a medio cambiar): reporte de un jugador en 1.1.0. El error se registra y el juego sigue.
     private static void Prefix(VersusMode __instance)
     {
-        MapaVersus.EmpiezaPartida();
-        MapaVersus.Asegurar();
+        try
+        {
+            MapaVersus.EmpiezaPartida();
+            MapaVersus.Asegurar();
+        }
+        catch (Exception e)
+        {
+            VersusBotMod.Log.Error("No se pudo preparar el mapa al empezar la partida: " + e);
+        }
     }
 
     private static void Postfix(VersusMode __instance)
